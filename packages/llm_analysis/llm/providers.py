@@ -767,7 +767,9 @@ class CopilotCLIProvider:
         }
 
 
-# Backward compatibility for older imports.
+# Backward-compatibility alias — the provider was renamed when the backend
+# migrated from Claude Code to GitHub Copilot CLI.  New code should import
+# CopilotCLIProvider directly.
 ClaudeCodeProvider = CopilotCLIProvider
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# raptor — launch RAPTOR via Claude Code
+# raptor — launch RAPTOR via GitHub Copilot CLI
 #
 # Install: add this directory to PATH, or symlink to a directory already on PATH.
 #
@@ -35,19 +35,17 @@ Arguments:
   target             Path or URL to scan (optional)
 
 Options:
-  -c, --continue     Resume last RAPTOR session
-  -m, --model MODEL  Choose model (opus, sonnet, haiku)
-  -v, --verbose      Verbose output
+  -m, --model MODEL  Choose model (gpt-5.4, claude-sonnet-4.6)
   -h, --help         Show this help
 
-Any additional flags are passed through to claude.
+Any additional flags are passed through to copilot.
 EOF
     exit 0
 }
 
 # --- Parse args ---
 
-CLAUDE_ARGS=(-n RAPTOR)
+COPILOT_ARGS=()
 INITIAL_PROMPT="/raptor"
 TARGET=""
 
@@ -56,22 +54,13 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             usage
             ;;
-        -c|--continue)
-            CLAUDE_ARGS+=(--continue)
-            INITIAL_PROMPT=""
-            shift
-            ;;
         -m|--model)
             [[ $# -ge 2 ]] || { echo "  -m requires a model name"; exit 1; }
-            CLAUDE_ARGS+=(--model "$2")
+            COPILOT_ARGS+=(--model "$2")
             shift 2
             ;;
-        -v|--verbose)
-            CLAUDE_ARGS+=(--verbose)
-            shift
-            ;;
         -*)
-            CLAUDE_ARGS+=("$1")
+            COPILOT_ARGS+=("$1")
             shift
             ;;
         *)
@@ -87,9 +76,9 @@ fi
 
 # --- Prerequisites ---
 
-if ! command -v claude >/dev/null 2>&1; then
-    echo "  claude not found on PATH. Install Claude Code first."
-    echo "  https://docs.anthropic.com/en/docs/claude-code/overview"
+if ! command -v copilot >/dev/null 2>&1; then
+    echo "  copilot not found on PATH. Install GitHub Copilot CLI first."
+    echo "  https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started"
     exit 1
 fi
 
@@ -102,7 +91,7 @@ fi
 
 cd "$RAPTOR_DIR"
 if [ -n "$INITIAL_PROMPT" ]; then
-    exec claude "$INITIAL_PROMPT" "${CLAUDE_ARGS[@]}"
+    exec copilot "$INITIAL_PROMPT" "${COPILOT_ARGS[@]}"
 else
-    exec claude "${CLAUDE_ARGS[@]}"
+    exec copilot "${COPILOT_ARGS[@]}"
 fi
