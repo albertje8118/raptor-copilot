@@ -4,7 +4,7 @@
 
 Expert methodologies extracted from RAPTOR's Python code, made available for explicit invocation.
 
-**These personas already exist in Python code** - this makes them accessible to Claude Code users for manual guidance and review.
+**These personas already exist in Python code** - this makes them accessible to interactive assistant users for manual guidance and review.
 
 ---
 
@@ -39,7 +39,7 @@ Personas are **NOT auto-loaded**. Load when you need expert methodology:
 
 ### What Happens
 
-1. Claude loads persona file (tiers/personas/[name].md)
+1. The assistant loads the persona file (tiers/personas/[name].md)
 2. Applies persona methodology framework
 3. Analyzes using expert criteria
 4. Returns structured verdict/code

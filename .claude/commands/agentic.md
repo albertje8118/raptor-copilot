@@ -19,15 +19,15 @@ Execute: `python3 raptor.py agentic --repo <path>`
 
 Phase 4 dispatches findings for parallel analysis via one of two paths:
 
-- **Claude Code on PATH**: dispatches `claude -p` sub-agents (separate processes)
+- **GitHub Copilot CLI on PATH**: dispatches `copilot` CLI subprocesses for structured analysis
 - **External LLM configured**: dispatches via `generate_structured()` API calls
-- **Both available**: uses external LLM, falls back to Claude Code if it fails
+- **Both available**: uses the external LLM first, then falls back to GitHub Copilot CLI if it fails
 
 Model roles determine which model analyses (analysis), writes code (code), and
 provides second opinions (consensus).
 
 If **neither** is available, Phase 4 cannot run. The pipeline produces prep-only
-output. In that case, **YOU (Claude Code) are the LLM** — the user may ask you
+output. In that case, **YOU (the interactive assistant) are the LLM** — the user may ask you
 to analyse the findings directly in conversation. See the prep_only report mode
 below for instructions.
 
@@ -54,10 +54,10 @@ Do NOT include raw code from the findings in sub-agent prompts — let each agen
 read the code itself via the Read tool.
 
 **`"mode": "full"`** — An external LLM performed sequential analysis in Phase 3
-(when Claude Code was not available). Present the results to the user.
+(when GitHub Copilot CLI orchestration was not used). Present the results to the user.
 
 **`"mode": "orchestrated"`** — Phase 4 performed parallel analysis via external
-LLM or Claude Code sub-agents. Results include per-finding `analysed_by` (which
+LLM or GitHub Copilot CLI dispatches. Results include per-finding `analysed_by` (which
 model), `cost_usd`, `duration_seconds`, plus `cross_finding_groups` and optional
 `consensus` data. Present the results to the user.
 

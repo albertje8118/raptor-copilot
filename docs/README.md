@@ -409,6 +409,7 @@ Phase 4: Output
 - [x] Directory creation with parent support (handles nested finding IDs)
 - [x] Proper tuple unpacking from LLM responses
 - [x] Consistent metric tracking and reporting
+- [x] GitHub Copilot CLI orchestration path with external-LLM fallback
 - [x] Provider-specific warnings (e.g., Ollama exploit quality)
 
 
@@ -416,7 +417,6 @@ Phase 4: Output
 ## What's Not Working
 
 ### Source Code Analysis
-- [ ] Full orchestration with Claude Code multi-agent system
 - [ ] Some advanced CodeQL query customisation
 - [ ] Continuous monitoring mode
 

@@ -95,10 +95,10 @@ with open(f"{workdir}/findings.json", "w") as f:
 
 | Mode | Context | How Validation Works |
 |------|---------|---------------------|
-| **Non-Agentic** | `/validate` in Claude Code | Claude (you) performs Stages A-D directly by reading code |
+| **Non-Agentic** | `/validate` in an interactive session | The assistant (you) performs Stages A-D directly by reading code |
 | **Agentic** | `python3 raptor.py agentic` | Semgrep/CodeQL scan first → SARIF converted → deduplication or LLM API validation |
 
-### Non-Agentic Mode (Claude Code)
+### Non-Agentic Mode (Interactive Session)
 
 When user runs `/validate <path>`:
 1. **You are the LLM** - perform the analysis yourself
@@ -113,7 +113,7 @@ When user runs `/validate <path>`:
 ```
 User: /validate /tmp/vuln
        ↓
-Claude: Stage 0 → Stage A → Stage B → Stage C → Stage D → Stage E → Stage F
+Assistant: Stage 0 → Stage A → Stage B → Stage C → Stage D → Stage E → Stage F
               ↓
         Output: checklist.json, findings.json, attack-surface.json,
                 attack-tree.json, hypotheses.json, disproven.json,

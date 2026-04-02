@@ -13,7 +13,7 @@
 ║             ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═╝            ║ 
 ║                                                                           ║ 
 ║             Autonomous Offensive/Defensive Research Framework             ║
-║             Based on Claude Code - v1.0-alpha                             ║
+║         GitHub Copilot CLI Security Research Framework - v1.0-beta        ║
 ║                                                                           ║ 
 ║             By Gadi Evron, Daniel Cuthbert                                ║
 ║                and Thomas Dullien (Halvar Flake)                          ║ 
@@ -26,7 +26,7 @@
                   <__.|_|-|_|   
 ```
 
-## Claude Code Session Greeting
+## Interactive Session Greeting
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -116,7 +116,7 @@ Meant for use in lab environments.
 ## Implementation Notes
 
 - ASCII art: Use in Python CLI banner
-- Session greeting: Use in Claude Code (CLAUDE.md)
+- Session greeting: Use in interactive startup instructions (CLAUDE.md)
 - Scan results: Use in analysis-guidance.md presentation
 - Progress: Use during long operations
 - Taglines: Rotate in greetings (select randomly)
