@@ -10,13 +10,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 class TestPrepOnlyFlag:
-    """Test that --prep-only forces ClaudeCodeProvider regardless of LLM availability."""
+    """Test that --prep-only forces CopilotCLIProvider regardless of LLM availability."""
 
     def test_prep_only_forces_stub_provider(self, tmp_path):
-        """When prep_only=True, agent uses ClaudeCodeProvider even if external LLM is available."""
+        """When prep_only=True, agent uses CopilotCLIProvider even if external LLM is available."""
         mock_availability = MagicMock()
         mock_availability.external_llm = True
-        mock_availability.claude_code = True
+        mock_availability.copilot_cli = True
         mock_availability.llm_available = True
 
         with patch("packages.llm_analysis.agent.detect_llm_availability", return_value=mock_availability):
@@ -27,14 +27,14 @@ class TestPrepOnlyFlag:
                 prep_only=True,
             )
 
-        assert type(agent.llm).__name__ == "ClaudeCodeProvider"
+        assert type(agent.llm).__name__ == "CopilotCLIProvider"
         assert agent.llm_config is None
 
     def test_prep_only_false_uses_detection(self, tmp_path):
-        """When prep_only=False and no LLM available, auto-detects and uses ClaudeCodeProvider."""
+        """When prep_only=False and no LLM available, auto-detects and uses CopilotCLIProvider."""
         mock_availability = MagicMock()
         mock_availability.external_llm = False
-        mock_availability.claude_code = True
+        mock_availability.copilot_cli = True
         mock_availability.llm_available = True
 
         with patch("packages.llm_analysis.agent.detect_llm_availability", return_value=mock_availability):
@@ -45,7 +45,7 @@ class TestPrepOnlyFlag:
                 prep_only=False,
             )
 
-        assert type(agent.llm).__name__ == "ClaudeCodeProvider"
+        assert type(agent.llm).__name__ == "CopilotCLIProvider"
 
     def test_prep_only_cli_flag_accepted(self):
         """argparse accepts --prep-only without error."""

@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from shlex import quote
 from typing import Dict, List, Optional
-import xml.etree.ElementTree as ET
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -27,13 +26,16 @@ logger = get_logger()
 @dataclass
 class BuildSystem:
     """Information about detected build system."""
+
     type: str  # maven, gradle, npm, etc.
     command: str  # Build command to use
     working_dir: Path  # Directory to run command in
     env_vars: Dict[str, str]  # Environment variables needed
     confidence: float  # 0.0 - 1.0
     detected_files: List[str]  # Files that indicated this build system
-    cleanup_paths: List[Path] = field(default_factory=list)  # Temp files/dirs to remove after CodeQL
+    cleanup_paths: List[Path] = field(
+        default_factory=list
+    )  # Temp files/dirs to remove after CodeQL
 
 
 class BuildDetector:
@@ -54,7 +56,12 @@ class BuildDetector:
                 "priority": 1,
             },
             "gradle": {
-                "files": ["build.gradle", "build.gradle.kts", "settings.gradle", "gradlew"],
+                "files": [
+                    "build.gradle",
+                    "build.gradle.kts",
+                    "settings.gradle",
+                    "gradlew",
+                ],
                 "command": "./gradlew build -x test --no-daemon",
                 "command_fallback": "gradle build -x test --no-daemon",
                 "env_vars": {"GRADLE_OPTS": "-Xmx2048m"},
@@ -233,12 +240,16 @@ class BuildDetector:
             return None
 
         # Return highest priority (lowest priority number)
-        best = min(detected, key=lambda x: self.BUILD_SYSTEMS[language][x.type]["priority"])
+        best = min(
+            detected, key=lambda x: self.BUILD_SYSTEMS[language][x.type]["priority"]
+        )
         logger.info(f"✓ Detected {best.type} build system for {language}")
         logger.info(f"  Command: {best.command}")
         return best
 
-    def _check_build_system(self, language: str, build_type: str, config: Dict) -> Optional[BuildSystem]:
+    def _check_build_system(
+        self, language: str, build_type: str, config: Dict
+    ) -> Optional[BuildSystem]:
         """
         Check if a specific build system is present.
 
@@ -307,7 +318,8 @@ class BuildDetector:
         """Check if package.json has a build script."""
         try:
             import json
-            with open(package_json) as f:
+
+            with open(package_json, encoding="utf-8") as f:
                 data = json.load(f)
                 scripts = data.get("scripts", {})
                 return "build" in scripts
@@ -315,7 +327,9 @@ class BuildDetector:
             logger.debug(f"Error parsing package.json: {e}")
             return False
 
-    def detect_all_build_systems(self, languages: List[str]) -> Dict[str, Optional[BuildSystem]]:
+    def detect_all_build_systems(
+        self, languages: List[str]
+    ) -> Dict[str, Optional[BuildSystem]]:
         """
         Detect build systems for multiple languages.
 
@@ -330,7 +344,9 @@ class BuildDetector:
             result[language] = self.detect_build_system(language)
         return result
 
-    def validate_build_command(self, build_system: BuildSystem, timeout: int = 30) -> bool:
+    def validate_build_command(
+        self, build_system: BuildSystem, timeout: int = 30
+    ) -> bool:
         """
         Validate that build command can be executed.
 
@@ -373,6 +389,7 @@ class BuildDetector:
                 stderr=subprocess.PIPE,
                 timeout=timeout,
                 cwd=build_system.working_dir,
+                check=False,
             )
             success = result.returncode == 0
             if success:
@@ -398,7 +415,7 @@ class BuildDetector:
     # Note: -I/ (root include) is technically allowed — file permissions are
     # the protection. CodeQL's --source-root prevents system headers from
     # being indexed as project code.
-    _SAFE_FLAG_TOKEN = re.compile(r'^-?[A-Za-z0-9._/+=-]+$')
+    _SAFE_FLAG_TOKEN = re.compile(r"^-?[A-Za-z0-9._/+=-]+$")
 
     def _validate_flags(self, flags: list) -> list:
         """Validate and normalise compiler flags.
@@ -437,15 +454,20 @@ class BuildDetector:
         if language not in self.COMPILED_LANGUAGES or language not in ("cpp", "java"):
             return None
 
-        source_files, compiler, include_flags, define_flags = self._detect_build_params(language)
+        source_files, compiler, include_flags, define_flags = self._detect_build_params(
+            language
+        )
         if not source_files:
             return None
 
         # Create build dir and script once — reused across heuristic and CC
         import tempfile
+
         build_dir = Path(tempfile.mkdtemp(prefix=".raptor_build_", dir=self.repo_path))
         fd, script_name = tempfile.mkstemp(
-            prefix=".raptor_build_", suffix=".py", dir=self.repo_path,
+            prefix=".raptor_build_",
+            suffix=".py",
+            dir=self.repo_path,
         )
         os.close(fd)
         script_path = Path(script_name)
@@ -454,8 +476,12 @@ class BuildDetector:
 
         # Write heuristic build script and dry-run
         self._write_build_script(
-            script_path, build_dir,
-            source_files, compiler, include_flags, define_flags,
+            script_path,
+            build_dir,
+            source_files,
+            compiler,
+            include_flags,
+            define_flags,
         )
         logger.info(f"Synthesised build script for {language}: {script_path}")
         logger.info(f"  Source files: {len(source_files)}")
@@ -467,12 +493,17 @@ class BuildDetector:
         # If heuristic has failures, try CC for better flags
         if failures:
             heuristic_ok = len(source_files) - len(failures)
-            logger.info(f"  Dry-run: {heuristic_ok}/{len(source_files)} compiled, {len(failures)} failed")
+            logger.info(
+                f"  Dry-run: {heuristic_ok}/{len(source_files)} compiled, {len(failures)} failed"
+            )
 
             cc_flags = self._cc_suggest_flags(failures, language)
             if cc_flags:
                 self._write_build_script(
-                    script_path, build_dir, source_files, compiler,
+                    script_path,
+                    build_dir,
+                    source_files,
+                    compiler,
                     include_flags + cc_flags.get("includes", []),
                     define_flags + cc_flags.get("defines", []),
                 )
@@ -482,21 +513,28 @@ class BuildDetector:
                     logger.info(f"  CC improved: {heuristic_ok} → {cc_ok} compiled")
                     build_type = "synthesised-cc"
                 else:
-                    logger.info(f"  CC didn't improve, using heuristic")
+                    logger.info("  CC didn't improve, using heuristic")
                     self._write_build_script(
-                        script_path, build_dir,
-                        source_files, compiler, include_flags, define_flags,
+                        script_path,
+                        build_dir,
+                        source_files,
+                        compiler,
+                        include_flags,
+                        define_flags,
                     )
                     confidence = 0.5
             else:
                 confidence = 0.5
         else:
-            logger.info(f"  Dry-run: all files compiled successfully")
+            logger.info("  Dry-run: all files compiled successfully")
 
         return BuildSystem(
-            type=build_type, command=build_cmd,
-            working_dir=self.repo_path, env_vars={},
-            confidence=confidence, detected_files=[],
+            type=build_type,
+            command=build_cmd,
+            working_dir=self.repo_path,
+            env_vars={},
+            confidence=confidence,
+            detected_files=[],
             cleanup_paths=cleanup,
         )
 
@@ -521,7 +559,7 @@ class BuildDetector:
         elif language == "java":
             source_files = list(self.repo_path.rglob("*.java"))
             compiler = "javac"
-            include_flags = [f"-sourcepath", str(self.repo_path)]
+            include_flags = ["-sourcepath", str(self.repo_path)]
         else:
             return [], "", [], []
 
@@ -529,8 +567,15 @@ class BuildDetector:
         include_flags = self._validate_flags(include_flags)
         return source_files, compiler, include_flags, []
 
-    def _write_build_script(self, script_path, build_dir,
-                            source_files, compiler, include_flags, define_flags):
+    def _write_build_script(
+        self,
+        script_path,
+        build_dir,
+        source_files,
+        compiler,
+        include_flags,
+        define_flags,
+    ):
         """Write a Python build script that compiles via subprocess.run.
 
         Security model:
@@ -604,7 +649,7 @@ for i, src in enumerate(FILES):
             created_dirs.add(obj_dir)
         cmd = [COMPILER, "-w"] + FLAGS + ["-c", src, "-o", obj]
 
-    result = subprocess.run(cmd, stderr=subprocess.PIPE)
+    result = subprocess.run(cmd, stderr=subprocess.PIPE, check=False)
     if result.returncode == 0:
         ok += 1
     else:
@@ -624,11 +669,16 @@ print(f"Compiled {{ok}}/{{total}} files ({{fail}} failed)")
             result = subprocess.run(
                 [sys.executable, str(script_path)],
                 cwd=self.repo_path,
-                capture_output=True, text=True, timeout=300,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             # Script crash (not compilation failure) — treat as unknown
             if result.returncode != 0 and "Traceback" in result.stderr:
-                logger.warning(f"Build script crashed: {result.stderr.split(chr(10))[-2]}")
+                logger.warning(
+                    f"Build script crashed: {result.stderr.split(chr(10))[-2]}"
+                )
                 return []
         except (subprocess.TimeoutExpired, Exception):
             return []
@@ -648,15 +698,15 @@ print(f"Compiled {{ok}}/{{total}} files ({{fail}} failed)")
         """Ask CC to suggest -I and -D flags to fix compilation failures.
 
         Security model:
-        - CC has read-only access (--allowed-tools Read,Grep,Glob)
-        - CC outputs JSON data, not code — parsed by json.loads
-        - Every flag from CC goes through _validate_flags before use
-        - CC cannot modify the build script or execute commands
+        - GitHub Copilot CLI only returns JSON data — parsed by json.loads
+        - Every flag from the CLI goes through _validate_flags before use
+        - The suggestion step cannot modify the build script
         - Invalid/malicious flags are silently rejected
         """
         import shutil as _shutil
-        claude_bin = _shutil.which("claude")
-        if not claude_bin:
+
+        copilot_bin = _shutil.which("copilot")
+        if not copilot_bin:
             return None
 
         failure_sample = "\n".join(
@@ -682,14 +732,23 @@ Rules:
 """
 
         try:
-            logger.info("  Asking Claude Code for additional compiler flags...")
+            logger.info("  Asking GitHub Copilot CLI for additional compiler flags...")
+            from packages.llm_analysis.copilot_dispatch import resolve_copilot_model
+
             result = subprocess.run(
-                [claude_bin, "-p",
-                 "--no-session-persistence",
-                 "--allowed-tools", "Read,Grep,Glob",
-                 "--add-dir", str(self.repo_path),
-                 "--max-budget-usd", "2.00"],
-                input=prompt, capture_output=True, text=True, timeout=180,
+                [
+                    copilot_bin,
+                    "-s",
+                    "--model",
+                    resolve_copilot_model(),
+                    "-p",
+                    prompt,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=180,
+                cwd=self.repo_path,
+                check=False,
             )
             if result.returncode != 0 or not result.stdout.strip():
                 return None
@@ -705,6 +764,7 @@ Rules:
                         break
 
             import json
+
             try:
                 # Try strict parse first (entire content is JSON)
                 data = json.loads(content)
@@ -714,20 +774,22 @@ Rules:
                     idx = content.index("{")
                     data = json.loads(content[idx:])
                 except (ValueError, json.JSONDecodeError):
-                    logger.debug("CC output wasn't valid JSON")
+                    logger.debug("GitHub Copilot CLI output wasn't valid JSON")
                     return None
 
             includes = self._validate_flags(data.get("includes", []))
             defines = self._validate_flags(data.get("defines", []))
 
             if includes or defines:
-                logger.info(f"  CC suggested {len(includes)} includes, {len(defines)} defines")
+                logger.info(
+                    f"  GitHub Copilot CLI suggested {len(includes)} includes, {len(defines)} defines"
+                )
                 return {"includes": includes, "defines": defines}
 
         except subprocess.TimeoutExpired:
-            logger.info("  CC flag suggestion timed out (180s)")
+            logger.info("  GitHub Copilot CLI flag suggestion timed out (180s)")
         except Exception as e:
-            logger.debug(f"CC flag suggestion failed: {e}")
+            logger.debug(f"GitHub Copilot CLI flag suggestion failed: {e}")
 
         return None
 
@@ -761,7 +823,9 @@ def main():
     parser = argparse.ArgumentParser(description="Detect build systems")
     parser.add_argument("--repo", required=True, help="Repository path")
     parser.add_argument("--language", required=True, help="Programming language")
-    parser.add_argument("--validate", action="store_true", help="Validate build command")
+    parser.add_argument(
+        "--validate", action="store_true", help="Validate build command"
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 
@@ -775,7 +839,7 @@ def main():
     if args.validate:
         valid = detector.validate_build_command(build_system)
         if not valid:
-            print(f"WARNING: Build command validation failed")
+            print("WARNING: Build command validation failed")
 
     if args.json:
         output = {

@@ -13,7 +13,7 @@ import sys
 import time
 from abc import ABC, abstractmethod
 from inspect import isclass
-from typing import Dict, Optional, Any, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,7 +26,10 @@ from .config import ModelConfig
 logger = get_logger()
 
 # SDK availability flags (canonical source is detection.py)
-from .detection import OPENAI_SDK_AVAILABLE, ANTHROPIC_SDK_AVAILABLE
+from .detection import OPENAI_SDK_AVAILABLE, ANTHROPIC_SDK_AVAILABLE  # noqa: E402
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 # Re-import the actual modules where available (config.py only sets flags)
 if OPENAI_SDK_AVAILABLE:
@@ -36,6 +39,7 @@ if ANTHROPIC_SDK_AVAILABLE:
 
 try:
     import instructor
+
     INSTRUCTOR_AVAILABLE = True
 except ImportError:
     INSTRUCTOR_AVAILABLE = False
@@ -44,6 +48,7 @@ except ImportError:
 @dataclass
 class LLMResponse:
     """Standardised LLM response."""
+
     content: str
     model: str
     provider: str
@@ -62,6 +67,7 @@ class StructuredResponse:
 
     Iterable for backwards compatibility: result, raw = response
     """
+
     result: Dict[str, Any]
     raw: str
     cost: float = 0.0
@@ -85,6 +91,7 @@ class LLMProvider(ABC):
 
     def __init__(self, config: ModelConfig):
         import threading
+
         self.config = config
         self.total_tokens = 0
         self.total_input_tokens = 0
@@ -95,50 +102,64 @@ class LLMProvider(ABC):
         self._usage_lock = threading.Lock()
 
     @abstractmethod
-    def generate(self, prompt: str, system_prompt: Optional[str] = None,
-                 **kwargs) -> LLMResponse:
+    def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
+    ) -> LLMResponse:
         """Generate completion from the model."""
         pass
 
     @abstractmethod
-    def generate_structured(self, prompt: str, schema: Dict[str, Any],
-                           system_prompt: Optional[str] = None) -> Tuple[Dict[str, Any], str]:
+    def generate_structured(
+        self, prompt: str, schema: Dict[str, Any], system_prompt: Optional[str] = None
+    ) -> Tuple[Dict[str, Any], str]:
         """Generate structured output matching the provided schema."""
         pass
 
-    def track_usage(self, tokens: int, cost: float,
-                    input_tokens: int = 0, output_tokens: int = 0,
-                    duration: float = 0.0) -> None:
+    def track_usage(
+        self,
+        tokens: int,
+        cost: float,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        duration: float = 0.0,
+    ) -> None:
         """Track token usage, cost, and call duration (thread-safe)."""
         with self._usage_lock:
             self.total_tokens += tokens
             self.total_input_tokens += input_tokens
             self.total_output_tokens += output_tokens
-            self.total_cost += (cost or 0.0)
+            self.total_cost += cost or 0.0
             self.call_count += 1
             self.total_duration += duration
-        logger.debug(f"LLM usage: {tokens} tokens, ${(cost or 0.0):.4f} (total: {self.total_tokens} tokens, ${self.total_cost:.4f})")
+        logger.debug(
+            f"LLM usage: {tokens} tokens, ${(cost or 0.0):.4f} (total: {self.total_tokens} tokens, ${self.total_cost:.4f})"
+        )
 
-    def _calculate_cost_split(self, input_tokens: int, output_tokens: int,
-                              thinking_tokens: int = 0) -> float:
+    def _calculate_cost_split(
+        self, input_tokens: int, output_tokens: int, thinking_tokens: int = 0
+    ) -> float:
         """Calculate cost using split input/output pricing.
 
         Thinking/reasoning tokens are billed at the output rate on all
         providers (OpenAI, Google, Anthropic).
         """
         from .model_data import MODEL_COSTS
+
         rates = MODEL_COSTS.get(self.config.model_name)
         if not rates:
             rate = self.config.cost_per_1k_tokens or 0.0
             return ((input_tokens + output_tokens + thinking_tokens) / 1000) * rate
-        return (
-            (input_tokens / 1000) * rates["input"]
-            + ((output_tokens + thinking_tokens) / 1000) * rates["output"]
-        )
+        return (input_tokens / 1000) * rates["input"] + (
+            (output_tokens + thinking_tokens) / 1000
+        ) * rates["output"]
 
-    def _structured_fallback(self, prompt: str, schema: Dict[str, Any],
-                             pydantic_model, system_prompt: Optional[str] = None
-                             ) -> Tuple[Dict[str, Any], str]:
+    def _structured_fallback(
+        self,
+        prompt: str,
+        schema: Dict[str, Any],
+        pydantic_model,
+        system_prompt: Optional[str] = None,
+    ) -> Tuple[Dict[str, Any], str]:
         """
         Universal fallback: ask for JSON in the prompt, validate
         with Pydantic. Works with any LLM that can produce JSON.
@@ -226,7 +247,7 @@ def _coerce_to_schema(data: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str,
     return coerced
 
 
-def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
+def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type["BaseModel"]]):
     """
     Convert dict schema or Pydantic model to Pydantic model class.
 
@@ -250,8 +271,7 @@ def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
     Raises:
         ValueError: If schema is invalid or empty
     """
-    from pydantic import BaseModel, Field, create_model
-    from typing import get_type_hints
+    from pydantic import BaseModel, create_model
 
     # Check if already a Pydantic model class
     if isclass(schema) and issubclass(schema, BaseModel):
@@ -297,13 +317,15 @@ def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
                     desc = field_desc.split(" - ", 1)[1].strip()
                     properties[field_name]["description"] = desc
                 elif "(" in field_desc:
-                    desc = field_desc[field_desc.find("("):].strip()
+                    desc = field_desc[field_desc.find("(") :].strip()
                     properties[field_name]["description"] = desc
             elif isinstance(field_desc, dict):
                 # Already in property format (partial JSON Schema)
                 properties[field_name] = field_desc
             else:
-                raise ValueError(f"Invalid field description for '{field_name}': {field_desc}")
+                raise ValueError(
+                    f"Invalid field description for '{field_name}': {field_desc}"
+                )
 
         # Wrap into JSON Schema format with all fields required by default
         schema = {"properties": properties, "required": list(schema.keys())}
@@ -320,7 +342,7 @@ def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
         "boolean": bool,
         "array": list,
         "object": dict,
-        "null": type(None)
+        "null": type(None),
     }
 
     # Build field definitions for create_model
@@ -339,6 +361,7 @@ def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
         python_type = type_map.get(field_type, str)
         if nullable:
             from typing import Optional as Opt
+
             python_type = Opt[python_type]
 
         # Get default value if present
@@ -352,6 +375,7 @@ def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
         # If field is not required and has no default, make it Optional
         if not is_required and default_value is ...:
             from typing import Optional as Opt
+
             python_type = Opt[python_type]
             default_value = None
 
@@ -362,7 +386,7 @@ def _dict_schema_to_pydantic(schema: Union[Dict[str, Any], Type['BaseModel']]):
             field_definitions[field_name] = (python_type, default_value)
 
     # Create and return Pydantic model
-    model = create_model('DynamicSchema', **field_definitions)
+    model = create_model("DynamicSchema", **field_definitions)
     return model
 
 
@@ -377,9 +401,7 @@ class OpenAICompatibleProvider(LLMProvider):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         if not OPENAI_SDK_AVAILABLE:
-            raise ImportError(
-                "OpenAI SDK not installed. Run: pip install openai"
-            )
+            raise ImportError("OpenAI SDK not installed. Run: pip install openai")
 
         self.client = OpenAI(
             api_key=config.api_key or "unused",
@@ -397,10 +419,13 @@ class OpenAICompatibleProvider(LLMProvider):
                 "For more reliable structured output: pip install instructor"
             )
 
-        logger.debug(f"Initialized OpenAICompatibleProvider: {config.model_name} (base_url={config.api_base})")
+        logger.debug(
+            f"Initialized OpenAICompatibleProvider: {config.model_name} (base_url={config.api_base})"
+        )
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None,
-                 **kwargs) -> LLMResponse:
+    def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
+    ) -> LLMResponse:
         """Generate completion using the OpenAI SDK."""
         messages = []
         if system_prompt:
@@ -429,19 +454,23 @@ class OpenAICompatibleProvider(LLMProvider):
                 input_tokens = response.usage.prompt_tokens or 0
                 output_tokens = response.usage.completion_tokens or 0
                 # Extract thinking/reasoning tokens (o3, o4-mini, etc.)
-                details = getattr(response.usage, 'completion_tokens_details', None)
+                details = getattr(response.usage, "completion_tokens_details", None)
                 if details:
-                    thinking_tokens = getattr(details, 'reasoning_tokens', 0) or 0
+                    thinking_tokens = getattr(details, "reasoning_tokens", 0) or 0
                     # Reasoning tokens are included in completion_tokens — subtract
                     # to get actual output tokens for display, but bill both as output
                     output_tokens = output_tokens - thinking_tokens
 
             tokens_used = input_tokens + output_tokens + thinking_tokens
-            cost = self._calculate_cost_split(input_tokens, output_tokens, thinking_tokens)
+            cost = self._calculate_cost_split(
+                input_tokens, output_tokens, thinking_tokens
+            )
 
             self.track_usage(tokens_used, cost, input_tokens, output_tokens, duration)
-            logger.debug(f"[OpenAI] model={self.config.model_name}, tokens={tokens_used}, cost=${cost:.4f}, duration={duration:.2f}s"
-                         + (f", thinking={thinking_tokens}" if thinking_tokens else ""))
+            logger.debug(
+                f"[OpenAI] model={self.config.model_name}, tokens={tokens_used}, cost=${cost:.4f}, duration={duration:.2f}s"
+                + (f", thinking={thinking_tokens}" if thinking_tokens else "")
+            )
 
             return LLMResponse(
                 content=content,
@@ -460,8 +489,9 @@ class OpenAICompatibleProvider(LLMProvider):
             logger.error(f"OpenAI completion failed: {e}")
             raise
 
-    def generate_structured(self, prompt: str, schema: Dict[str, Any],
-                           system_prompt: Optional[str] = None) -> Tuple[Dict[str, Any], str]:
+    def generate_structured(
+        self, prompt: str, schema: Dict[str, Any], system_prompt: Optional[str] = None
+    ) -> Tuple[Dict[str, Any], str]:
         """Generate structured output using Instructor (or JSON fallback)."""
         pydantic_model = _dict_schema_to_pydantic(schema)
 
@@ -475,12 +505,14 @@ class OpenAICompatibleProvider(LLMProvider):
                 messages.append({"role": "user", "content": prompt})
 
                 t_start = time.monotonic()
-                result, completion = self.instructor_client.chat.completions.create_with_completion(
-                    model=self.config.model_name,
-                    response_model=pydantic_model,
-                    messages=messages,
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
+                result, completion = (
+                    self.instructor_client.chat.completions.create_with_completion(
+                        model=self.config.model_name,
+                        response_model=pydantic_model,
+                        messages=messages,
+                        temperature=self.config.temperature,
+                        max_tokens=self.config.max_tokens,
+                    )
                 )
                 duration = time.monotonic() - t_start
 
@@ -493,20 +525,28 @@ class OpenAICompatibleProvider(LLMProvider):
                 if completion.usage:
                     input_tokens = completion.usage.prompt_tokens or 0
                     output_tokens = completion.usage.completion_tokens or 0
-                    details = getattr(completion.usage, 'completion_tokens_details', None)
+                    details = getattr(
+                        completion.usage, "completion_tokens_details", None
+                    )
                     if details:
-                        thinking_tokens = getattr(details, 'reasoning_tokens', 0) or 0
+                        thinking_tokens = getattr(details, "reasoning_tokens", 0) or 0
                         output_tokens = output_tokens - thinking_tokens
 
                 tokens_used = input_tokens + output_tokens + thinking_tokens
-                cost = self._calculate_cost_split(input_tokens, output_tokens, thinking_tokens)
-                self.track_usage(tokens_used, cost, input_tokens, output_tokens, duration)
+                cost = self._calculate_cost_split(
+                    input_tokens, output_tokens, thinking_tokens
+                )
+                self.track_usage(
+                    tokens_used, cost, input_tokens, output_tokens, duration
+                )
 
                 return result_dict, full_response
 
             except Exception as e:
                 if not self._instructor_warned:
-                    logger.warning(f"Instructor structured generation failed for {self.config.provider}/{self.config.model_name} — disabling for this provider, using JSON fallback")
+                    logger.warning(
+                        f"Instructor structured generation failed for {self.config.provider}/{self.config.model_name} — disabling for this provider, using JSON fallback"
+                    )
                     self._instructor_warned = True
                 else:
                     logger.debug(f"Instructor fallback (repeat): {e}")
@@ -528,9 +568,7 @@ class AnthropicProvider(LLMProvider):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         if not ANTHROPIC_SDK_AVAILABLE:
-            raise ImportError(
-                "Anthropic SDK not installed. Run: pip install anthropic"
-            )
+            raise ImportError("Anthropic SDK not installed. Run: pip install anthropic")
 
         self.client = anthropic.Anthropic(
             api_key=config.api_key,
@@ -549,8 +587,9 @@ class AnthropicProvider(LLMProvider):
 
         logger.debug(f"Initialized AnthropicProvider: {config.model_name}")
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None,
-                 **kwargs) -> LLMResponse:
+    def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, **kwargs
+    ) -> LLMResponse:
         """Generate completion using the Anthropic SDK."""
         messages = [{"role": "user", "content": prompt}]
 
@@ -572,8 +611,10 @@ class AnthropicProvider(LLMProvider):
             if not response.content:
                 raise RuntimeError("Anthropic returned empty content")
             first_block = response.content[0]
-            if not hasattr(first_block, 'text'):
-                raise RuntimeError(f"Anthropic returned non-text content block: {first_block.type}")
+            if not hasattr(first_block, "text"):
+                raise RuntimeError(
+                    f"Anthropic returned non-text content block: {first_block.type}"
+                )
             content = first_block.text
             finish_reason = response.stop_reason or "complete"
 
@@ -584,12 +625,16 @@ class AnthropicProvider(LLMProvider):
                 input_tokens = response.usage.input_tokens or 0
                 output_tokens = response.usage.output_tokens or 0
                 # Anthropic extended thinking (when available)
-                thinking_tokens = getattr(response.usage, 'thinking_tokens', 0) or 0
+                thinking_tokens = getattr(response.usage, "thinking_tokens", 0) or 0
             tokens_used = input_tokens + output_tokens + thinking_tokens
-            cost = self._calculate_cost_split(input_tokens, output_tokens, thinking_tokens)
+            cost = self._calculate_cost_split(
+                input_tokens, output_tokens, thinking_tokens
+            )
 
             self.track_usage(tokens_used, cost, input_tokens, output_tokens, duration)
-            logger.debug(f"[Anthropic] model={self.config.model_name}, tokens={tokens_used}, cost=${cost:.4f}, duration={duration:.2f}s")
+            logger.debug(
+                f"[Anthropic] model={self.config.model_name}, tokens={tokens_used}, cost=${cost:.4f}, duration={duration:.2f}s"
+            )
 
             return LLMResponse(
                 content=content,
@@ -608,8 +653,9 @@ class AnthropicProvider(LLMProvider):
             logger.error(f"Anthropic completion failed: {e}")
             raise
 
-    def generate_structured(self, prompt: str, schema: Dict[str, Any],
-                           system_prompt: Optional[str] = None) -> Tuple[Dict[str, Any], str]:
+    def generate_structured(
+        self, prompt: str, schema: Dict[str, Any], system_prompt: Optional[str] = None
+    ) -> Tuple[Dict[str, Any], str]:
         """Generate structured output using Instructor (or JSON fallback)."""
         pydantic_model = _dict_schema_to_pydantic(schema)
 
@@ -629,8 +675,10 @@ class AnthropicProvider(LLMProvider):
                     create_kwargs["system"] = system_prompt
 
                 t_start = time.monotonic()
-                result, completion = self.instructor_client.messages.create_with_completion(
-                    **create_kwargs,
+                result, completion = (
+                    self.instructor_client.messages.create_with_completion(
+                        **create_kwargs,
+                    )
                 )
                 duration = time.monotonic() - t_start
 
@@ -643,16 +691,24 @@ class AnthropicProvider(LLMProvider):
                 if completion.usage:
                     input_tokens = completion.usage.input_tokens or 0
                     output_tokens = completion.usage.output_tokens or 0
-                    thinking_tokens = getattr(completion.usage, 'thinking_tokens', 0) or 0
+                    thinking_tokens = (
+                        getattr(completion.usage, "thinking_tokens", 0) or 0
+                    )
                 tokens_used = input_tokens + output_tokens + thinking_tokens
-                cost = self._calculate_cost_split(input_tokens, output_tokens, thinking_tokens)
-                self.track_usage(tokens_used, cost, input_tokens, output_tokens, duration)
+                cost = self._calculate_cost_split(
+                    input_tokens, output_tokens, thinking_tokens
+                )
+                self.track_usage(
+                    tokens_used, cost, input_tokens, output_tokens, duration
+                )
 
                 return result_dict, full_response
 
             except Exception as e:
                 if not self._instructor_warned:
-                    logger.warning(f"Instructor structured generation failed for {self.config.provider}/{self.config.model_name} — disabling for this provider, using JSON fallback")
+                    logger.warning(
+                        f"Instructor structured generation failed for {self.config.provider}/{self.config.model_name} — disabling for this provider, using JSON fallback"
+                    )
                     self._instructor_warned = True
                 else:
                     logger.debug(f"Instructor fallback (repeat): {e}")
@@ -663,15 +719,15 @@ class AnthropicProvider(LLMProvider):
         return self._structured_fallback(prompt, schema, pydantic_model, system_prompt)
 
 
-class ClaudeCodeProvider:
+class CopilotCLIProvider:
     """
-    LLM provider stub that signals 'Claude Code will handle this.'
+    LLM provider stub that signals 'GitHub Copilot CLI will handle this.'
 
     Returns None from all generation methods. When the agentic pipeline
-    runs inside Claude Code with no external LLM configured, this provider
+    runs with GitHub Copilot CLI and no external LLM configured, this provider
     is used instead of LLMClient. The Python pipeline does mechanical prep
     work (SARIF parsing, code extraction, dataflow analysis) and returns
-    structured findings for Claude Code to reason over.
+    structured findings for Copilot CLI to reason over.
 
     Callers handle None returns gracefully — the same code path used when
     an external LLM call fails.
@@ -691,14 +747,14 @@ class ClaudeCodeProvider:
         self.call_count = 0
         self.total_duration = 0.0
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None,
-                 **kwargs):
-        """Returns None — Claude Code will do the reasoning."""
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, **kwargs):
+        """Returns None — GitHub Copilot CLI will do the reasoning."""
         return None
 
-    def generate_structured(self, prompt: str, schema: Dict[str, Any],
-                           system_prompt: Optional[str] = None):
-        """Returns (None, None) — Claude Code will do the reasoning."""
+    def generate_structured(
+        self, prompt: str, schema: Dict[str, Any], system_prompt: Optional[str] = None
+    ):
+        """Returns (None, None) — GitHub Copilot CLI will do the reasoning."""
         return None, None
 
     def get_stats(self) -> Dict[str, Any]:
@@ -709,6 +765,10 @@ class ClaudeCodeProvider:
             "budget_remaining": 0.0,
             "providers": {},
         }
+
+
+# Backward compatibility for older imports.
+ClaudeCodeProvider = CopilotCLIProvider
 
 
 def create_provider(config: ModelConfig) -> LLMProvider:
@@ -735,6 +795,7 @@ def create_provider(config: ModelConfig) -> LLMProvider:
                 "For best results: pip install anthropic"
             )
             from dataclasses import replace
+
             compat_config = replace(config, api_base="https://api.anthropic.com/v1")
             return OpenAICompatibleProvider(compat_config)
         else:
@@ -743,12 +804,16 @@ def create_provider(config: ModelConfig) -> LLMProvider:
             )
     if OPENAI_SDK_AVAILABLE:
         return OpenAICompatibleProvider(config)
-    raise RuntimeError(
-        f"Provider '{provider}' requires: pip install openai"
-    )
+    raise RuntimeError(f"Provider '{provider}' requires: pip install openai")
 
 
 # Backward compatibility
-ClaudeProvider = AnthropicProvider if ANTHROPIC_SDK_AVAILABLE else type('ClaudeProvider', (), {})
-OpenAIProvider = OpenAICompatibleProvider if OPENAI_SDK_AVAILABLE else type('OpenAIProvider', (), {})
-OllamaProvider = OpenAICompatibleProvider if OPENAI_SDK_AVAILABLE else type('OllamaProvider', (), {})
+ClaudeProvider = (
+    AnthropicProvider if ANTHROPIC_SDK_AVAILABLE else type("ClaudeProvider", (), {})
+)
+OpenAIProvider = (
+    OpenAICompatibleProvider if OPENAI_SDK_AVAILABLE else type("OpenAIProvider", (), {})
+)
+OllamaProvider = (
+    OpenAICompatibleProvider if OPENAI_SDK_AVAILABLE else type("OllamaProvider", (), {})
+)

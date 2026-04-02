@@ -28,7 +28,7 @@ class TestLLMClientInit:
     def test_init_works_without_litellm(self, mock_detect):
         """LLMClient should initialize without importing litellm."""
         mock_detect.return_value = MagicMock(
-            external_llm=True, claude_code=False, llm_available=True
+            external_llm=True, copilot_cli=False, llm_available=True
         )
         config = LLMConfig(
             primary_model=ModelConfig(
@@ -51,7 +51,7 @@ class TestLLMClientInit:
     def test_init_warns_when_no_llm_available(self, mock_detect):
         """LLMClient warns when no external LLM is available."""
         mock_detect.return_value = MagicMock(
-            external_llm=False, claude_code=False, llm_available=False
+            external_llm=False, copilot_cli=False, llm_available=False
         )
         config = LLMConfig(
             primary_model=None,
@@ -227,7 +227,7 @@ class TestBudgetChecking:
     def test_check_budget_passes_under_limit(self, mock_detect):
         """Budget check passes when under limit."""
         mock_detect.return_value = MagicMock(
-            external_llm=True, claude_code=False, llm_available=True
+            external_llm=True, copilot_cli=False, llm_available=True
         )
         config = LLMConfig(
             primary_model=ModelConfig(
@@ -245,7 +245,7 @@ class TestBudgetChecking:
     def test_check_budget_fails_over_limit(self, mock_detect):
         """Budget check fails when over limit."""
         mock_detect.return_value = MagicMock(
-            external_llm=True, claude_code=False, llm_available=True
+            external_llm=True, copilot_cli=False, llm_available=True
         )
         config = LLMConfig(
             primary_model=ModelConfig(
@@ -263,7 +263,7 @@ class TestBudgetChecking:
     def test_check_budget_passes_when_tracking_disabled(self, mock_detect):
         """Budget check always passes when cost tracking is disabled."""
         mock_detect.return_value = MagicMock(
-            external_llm=True, claude_code=False, llm_available=True
+            external_llm=True, copilot_cli=False, llm_available=True
         )
         config = LLMConfig(
             primary_model=ModelConfig(

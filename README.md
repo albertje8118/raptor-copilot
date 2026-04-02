@@ -9,7 +9,7 @@
 ║             ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═╝            ║ 
 ║                                                                           ║ 
 ║             Autonomous Offensive/Defensive Research Framework             ║
-║             Based on Claude Code - v1.0-beta                              ║
+║         GitHub Copilot CLI Security Research Framework - v1.0-beta        ║
 ║                                                                           ║ 
 ║             By Gadi Evron, Daniel Cuthbert                                ║
 ║                Thomas Dullien (Halvar Flake)                              ║
@@ -29,7 +29,7 @@
                                                  
 ```
 
-# RAPTOR - Autonomous Offensive/Defensive Security Research Framework, based on Claude Code
+# RAPTOR - Autonomous Offensive/Defensive Security Research Framework with GitHub Copilot CLI
 
 [![Run in Smithery](https://smithery.ai/badge/skills/gadievron)](https://smithery.ai/skills?ns=gadievron&utm_source=github&utm_medium=badge)
 [![CodeQL](https://github.com/gadievron/raptor/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/gadievron/raptor/actions/workflows/github-code-scanning/codeql)
@@ -48,8 +48,8 @@
 
 ## What is RAPTOR?
 
-RAPTOR is an **autonomous offensive/defensive security research framework**, based on
-**Claude Code**. It empowers security research with agentic workflows and automation.
+RAPTOR is an **autonomous offensive/defensive security research framework** that uses
+**GitHub Copilot CLI** for its CLI-driven backend reasoning flow. It empowers security research with agentic workflows and automation.
 
 RAPTOR stands for Recursive Autonomous Penetration Testing and Observation Robot.
 (We really wanted to name it RAPTOR)
@@ -87,7 +87,7 @@ without asking, check dependencies.txt first.
 ## What's unique about RAPTOR?
 
 Beyond RAPTOR's potential for autonomous security research and community collaboration, it
-demonstrates how Claude Code can be adapted for **any purpose**, with RAPTOR packages.
+demonstrates how GitHub Copilot CLI can power autonomous security workflows with RAPTOR packages.
 
 **Recent improvements:**
 - **Direct SDK Integration:** OpenAI + Anthropic SDKs with Pydantic validation, smart model selection, and cost tracking
@@ -123,15 +123,15 @@ RAPTOR now includes comprehensive GitHub forensics capabilities via the `/oss-fo
 You have two options, install on your own, or deploy the devcontainer.
 
 **Install**
-# 1. Install Claude Code
-# Download from: https://claude.ai/download
+# 1. Install GitHub Copilot CLI
+# Follow: https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-getting-started
 
 # 2. Clone and open RAPTOR
 git clone https://github.com/gadievron/raptor.git
 cd raptor
-claude
+copilot
 
-# 3. Let Claude install dependencies, and check licenses for the various tools
+# 3. Let Copilot install dependencies, and check licenses for the various tools
 "Install dependencies from requirements.txt"
 "Install semgrep"
 "Set my ANTHROPIC_API_KEY to [your-key]"
@@ -154,13 +154,13 @@ Just say "hi" to get started
 Try /analyze on one of our tests in /tests/data
 ```
 
-**See:** `docs/CLAUDE_CODE_USAGE.md` for complete guide
+**See:** `docs/README.md` for the current documentation set
 
 ---
 
 ## LLM Configuration & Cost Management
 
-RAPTOR uses the OpenAI and Anthropic SDKs directly for LLM provider integration with automatic fallback, cost tracking, and budget enforcement. Both SDKs are optional — RAPTOR works with just Claude Code installed.
+RAPTOR uses the OpenAI and Anthropic SDKs directly for API-based provider integration with automatic fallback, cost tracking, and budget enforcement. Both SDKs are optional — RAPTOR can also run its CLI orchestration path with GitHub Copilot CLI alone.
 
 **Key Features:**
 - **Direct SDK Integration:** OpenAI SDK for OpenAI/Gemini/Mistral/Ollama, Anthropic SDK for Claude
@@ -304,7 +304,7 @@ CodeQL Dataflow Analyst, CodeQL Finding Analyst
 Usage: "Use [persona name]"
 ```
 
-**See:** `docs/CLAUDE_CODE_USAGE.md` for detailed examples and workflows
+**See:** `docs/README.md` for detailed examples and workflows
 
 ---
 
@@ -312,7 +312,7 @@ Usage: "Use [persona name]"
 
 **Multi-layered system with progressive disclosure:**
 
-**Claude Code Decision System:**
+**Copilot CLI Decision System:**
 - Bootstrap (CLAUDE.md) → Always loaded
 - Tier1 (adversarial thinking, analysis-guidance, recovery) → Auto-loads when relevant
 - Tier2 (9 expert personas) → Load on explicit request
@@ -333,7 +333,7 @@ Usage: "Use [persona name]"
 - **Adversarial thinking:** Prioritizes findings by Impact × Exploitability / Detection Time
 - **Decision templates:** 5 options after each scan
 - **Progressive disclosure:** 360t → 925t → up to 2,500t with personas
-- **Dual interface:** Claude Code (interactive) or Python CLI (scripting)
+- **Dual interface:** GitHub Copilot CLI (interactive) or Python CLI (scripting)
 
 **See:** `docs/ARCHITECTURE.md` for detailed technical documentation
 
@@ -341,7 +341,7 @@ Usage: "Use [persona name]"
 
 ## LLM Providers
 
-Model selection and API use is handled through Claude Code natively.
+CLI-first model selection is handled through GitHub Copilot CLI, while direct SDK integrations remain available for API-key-based execution.
 
 (very much) Experimental benchmark for exploit generation:
 
@@ -405,7 +405,7 @@ python3 raptor.py fuzz --binary /path/to/binary --duration 3600
 ## Documentation
 
 ### User Guides
-- **CLAUDE_CODE_USAGE.md** - Complete Claude Code usage guide
+- **README.md** - Documentation index and getting-started entry point
 - **PYTHON_CLI.md** - Python command-line reference
 - **FUZZING_QUICKSTART.md** - Binary fuzzing guide
 - **.claude/commands/oss-forensics.md** - OSS forensics investigation guide

@@ -16,7 +16,6 @@ Complete end-to-end autonomous security testing:
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import time
@@ -52,7 +51,7 @@ def run_command_streaming(cmd: list, description: str) -> tuple[int, str, str]:
     def stream_output(pipe, storage, prefix=""):
         """Read from pipe line by line and print while storing."""
         try:
-            for line in iter(pipe.readline, ''):
+            for line in iter(pipe.readline, ""):
                 if line:
                     storage.append(line)
                     # Strip [INFO] prefix for cleaner output.
@@ -73,7 +72,7 @@ def run_command_streaming(cmd: list, description: str) -> tuple[int, str, str]:
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,  # Line buffered
-            universal_newlines=True
+            universal_newlines=True,
         )
 
         stdout_lines = []
@@ -81,12 +80,10 @@ def run_command_streaming(cmd: list, description: str) -> tuple[int, str, str]:
 
         # Create threads to read stdout and stderr concurrently
         stdout_thread = threading.Thread(
-            target=stream_output,
-            args=(process.stdout, stdout_lines)
+            target=stream_output, args=(process.stdout, stdout_lines)
         )
         stderr_thread = threading.Thread(
-            target=stream_output,
-            args=(process.stderr, stderr_lines)
+            target=stream_output, args=(process.stderr, stderr_lines)
         )
 
         # Start reading threads
@@ -100,8 +97,8 @@ def run_command_streaming(cmd: list, description: str) -> tuple[int, str, str]:
         stdout_thread.join()
         stderr_thread.join()
 
-        stdout = ''.join(stdout_lines)
-        stderr = ''.join(stderr_lines)
+        stdout = "".join(stdout_lines)
+        stderr = "".join(stderr_lines)
 
         return process.returncode, stdout, stderr
 
@@ -144,45 +141,105 @@ Examples:
 
   # Focus validation on specific vulnerability type
   python3 raptor.py agentic --repo /path/to/code --vuln-type sql_injection
-        """
+        """,
     )
 
     parser.add_argument("--repo", required=True, help="Path to repository to Analyse")
-    parser.add_argument("--policy-groups", default="all", help="Comma-separated policy groups (default: all)")
-    parser.add_argument("--max-findings", type=int, default=10, help="Maximum findings to process (default: 10)")
-    parser.add_argument("--no-exploits", action="store_true", help="Skip exploit generation")
-    parser.add_argument("--no-patches", action="store_true", help="Skip patch generation")
+    parser.add_argument(
+        "--policy-groups",
+        default="all",
+        help="Comma-separated policy groups (default: all)",
+    )
+    parser.add_argument(
+        "--max-findings",
+        type=int,
+        default=10,
+        help="Maximum findings to process (default: 10)",
+    )
+    parser.add_argument(
+        "--no-exploits", action="store_true", help="Skip exploit generation"
+    )
+    parser.add_argument(
+        "--no-patches", action="store_true", help="Skip patch generation"
+    )
     parser.add_argument("--out", help="Output directory")
-    parser.add_argument("--mode", choices=["fast", "thorough"], default="thorough",
-                       help="fast: quick scan, thorough: detailed analysis")
+    parser.add_argument(
+        "--mode",
+        choices=["fast", "thorough"],
+        default="thorough",
+        help="fast: quick scan, thorough: detailed analysis",
+    )
 
     # CodeQL integration
-    parser.add_argument("--codeql", action="store_true", help="Enable CodeQL scanning (in addition to Semgrep)")
-    parser.add_argument("--codeql-only", action="store_true", help="Run CodeQL only (skip Semgrep)")
-    parser.add_argument("--no-codeql", action="store_true", help="Disable CodeQL scanning (Semgrep only)")
-    parser.add_argument("--languages", help="Languages for CodeQL (comma-separated, auto-detected if not specified)")
+    parser.add_argument(
+        "--codeql",
+        action="store_true",
+        help="Enable CodeQL scanning (in addition to Semgrep)",
+    )
+    parser.add_argument(
+        "--codeql-only", action="store_true", help="Run CodeQL only (skip Semgrep)"
+    )
+    parser.add_argument(
+        "--no-codeql",
+        action="store_true",
+        help="Disable CodeQL scanning (Semgrep only)",
+    )
+    parser.add_argument(
+        "--languages",
+        help="Languages for CodeQL (comma-separated, auto-detected if not specified)",
+    )
     parser.add_argument("--build-command", help="Custom build command for CodeQL")
-    parser.add_argument("--extended", action="store_true", help="Use CodeQL extended security suites")
-    parser.add_argument("--codeql-cli", help="Path to CodeQL CLI (auto-detected if not specified)")
-    parser.add_argument("--no-visualizations", action="store_true", help="Disable dataflow visualizations for CodeQL findings")
+    parser.add_argument(
+        "--extended", action="store_true", help="Use CodeQL extended security suites"
+    )
+    parser.add_argument(
+        "--codeql-cli", help="Path to CodeQL CLI (auto-detected if not specified)"
+    )
+    parser.add_argument(
+        "--no-visualizations",
+        action="store_true",
+        help="Disable dataflow visualizations for CodeQL findings",
+    )
 
     # Mitigation analysis options (NEW)
-    parser.add_argument("--binary", help="Target binary for mitigation analysis (enables pre-exploit checks)")
-    parser.add_argument("--check-mitigations", action="store_true",
-                       help="Run mitigation analysis before scanning (for binary exploit targets)")
-    parser.add_argument("--skip-mitigation-checks", action="store_true",
-                       help="Skip per-vulnerability mitigation checks during exploit generation")
+    parser.add_argument(
+        "--binary",
+        help="Target binary for mitigation analysis (enables pre-exploit checks)",
+    )
+    parser.add_argument(
+        "--check-mitigations",
+        action="store_true",
+        help="Run mitigation analysis before scanning (for binary exploit targets)",
+    )
+    parser.add_argument(
+        "--skip-mitigation-checks",
+        action="store_true",
+        help="Skip per-vulnerability mitigation checks during exploit generation",
+    )
 
     # Exploitability validation options
-    parser.add_argument("--skip-validation", action="store_true",
-                       help="Skip exploitability validation (proceed directly to analysis)")
-    parser.add_argument("--vuln-type", help="Vulnerability type to focus on (e.g., command_injection, sql_injection)")
+    parser.add_argument(
+        "--skip-validation",
+        action="store_true",
+        help="Skip exploitability validation (proceed directly to analysis)",
+    )
+    parser.add_argument(
+        "--vuln-type",
+        help="Vulnerability type to focus on (e.g., command_injection, sql_injection)",
+    )
 
     # Orchestration options
-    parser.add_argument("--max-parallel", type=int, default=3,
-                       help="Maximum parallel Claude Code agents for Phase 4 orchestration (default: 3)")
-    parser.add_argument("--no-orchestration", action="store_true",
-                       help="Skip Phase 4 orchestration (use Phase 3 sequential analysis even when CC is available)")
+    parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=3,
+        help="Maximum parallel GitHub Copilot CLI agents for Phase 4 orchestration (default: 3)",
+    )
+    parser.add_argument(
+        "--no-orchestration",
+        action="store_true",
+        help="Skip Phase 4 orchestration (use Phase 3 sequential analysis even when GitHub Copilot CLI is available)",
+    )
 
     args = parser.parse_args()
 
@@ -197,10 +254,10 @@ Examples:
     git_dir = repo_path / ".git"
     if not git_dir.exists():
         print(f"\n  No .git directory found in {repo_path}")
-        print(f"    Semgrep requires the directory to be a git repository.")
-        print(f"\n[*] Initializing git repository...")
+        print("    Semgrep requires the directory to be a git repository.")
+        print("\n[*] Initializing git repository...")
         logger.info(f"Initializing git repository in {repo_path}")
-        
+
         try:
             # Initialize git repo
             result = subprocess.run(
@@ -208,41 +265,44 @@ Examples:
                 cwd=repo_path,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                check=False,
             )
-            
+
             if result.returncode == 0:
-                print(f"✓ Git repository initialized successfully")
+                print("✓ Git repository initialized successfully")
                 logger.info("Git repository initialized")
-                
+
                 # Add all files to git
                 subprocess.run(
                     ["git", "add", "."],
                     cwd=repo_path,
                     capture_output=True,
-                    timeout=60
+                    timeout=60,
+                    check=False,
                 )
-                
+
                 # Create initial commit
                 subprocess.run(
                     ["git", "commit", "-m", "Initial commit for RAPTOR scan"],
                     cwd=repo_path,
                     capture_output=True,
-                    timeout=60
+                    timeout=60,
+                    check=False,
                 )
-                print(f"✓ Initial commit created")
+                print("✓ Initial commit created")
                 logger.info("Initial commit created")
             else:
                 print(f" Failed to initialize git repository: {result.stderr}")
                 logger.error(f"Git init failed: {result.stderr}")
                 sys.exit(1)
-                
+
         except subprocess.TimeoutExpired:
-            print(f" Git initialization timed out")
+            print(" Git initialization timed out")
             logger.error("Git init timeout")
             sys.exit(1)
         except FileNotFoundError:
-            print(f" Git is not installed. Please install git and try again.")
+            print(" Git is not installed. Please install git and try again.")
             logger.error("Git not found in PATH")
             sys.exit(1)
         except Exception as e:
@@ -276,6 +336,7 @@ Examples:
 
     # Detect LLM availability once — single source of truth for all phases
     from packages.llm_analysis.llm.config import detect_llm_availability
+
     llm_env = detect_llm_availability()
 
     # ========================================================================
@@ -290,7 +351,10 @@ Examples:
         print("This prevents wasted effort on impossible exploits.\n")
 
         try:
-            from packages.exploit_feasibility import analyze_binary, format_analysis_summary
+            from packages.exploit_feasibility import (
+                analyze_binary,
+                format_analysis_summary,
+            )
 
             binary_path = str(Path(args.binary)) if args.binary else None
             mitigation_result = analyze_binary(binary_path, output_dir=str(out_dir))
@@ -298,14 +362,14 @@ Examples:
             # Display formatted summary
             print(format_analysis_summary(mitigation_result, verbose=True))
 
-            verdict = mitigation_result.get('verdict', 'unknown')
-            if verdict == 'unlikely':
+            verdict = mitigation_result.get("verdict", "unknown")
+            if verdict == "unlikely":
                 print("\n" + "=" * 70)
                 print("NOTE: EXPLOITATION UNLIKELY WITH CURRENT MITIGATIONS")
                 print("=" * 70)
                 print("\nContinuing scan anyway (for vulnerability discovery)...")
 
-            elif verdict == 'difficult':
+            elif verdict == "difficult":
                 print("\n" + "=" * 70)
                 print("NOTE: EXPLOITATION DIFFICULT - REVIEW CONSTRAINTS ABOVE")
                 print("=" * 70)
@@ -346,12 +410,17 @@ Examples:
         semgrep_cmd = [
             "python3",
             str(script_root / "packages/static-analysis/scanner.py"),
-            "--repo", str(repo_path),
-            "--policy_groups", args.policy_groups,
+            "--repo",
+            str(repo_path),
+            "--policy_groups",
+            args.policy_groups,
         ]
-        logger.info(f"Running: Scanning code with Semgrep")
+        logger.info("Running: Scanning code with Semgrep")
         semgrep_proc = subprocess.Popen(
-            semgrep_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            semgrep_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
 
     if run_codeql:
@@ -359,8 +428,10 @@ Examples:
         codeql_cmd = [
             "python3",
             str(script_root / "packages/codeql/agent.py"),
-            "--repo", str(repo_path),
-            "--out", str(out_dir / "codeql"),
+            "--repo",
+            str(repo_path),
+            "--out",
+            str(out_dir / "codeql"),
         ]
         if args.languages:
             codeql_cmd.extend(["--languages", args.languages])
@@ -370,28 +441,35 @@ Examples:
             codeql_cmd.append("--extended")
         if args.codeql_cli:
             codeql_cmd.extend(["--codeql-cli", args.codeql_cli])
-        logger.info(f"Running: Scanning code with CodeQL")
+        logger.info("Running: Scanning code with CodeQL")
         codeql_proc = subprocess.Popen(
-            codeql_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            codeql_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
 
     # ---- Collect Semgrep results ----
     if semgrep_proc:
         try:
-            semgrep_stdout, semgrep_stderr = semgrep_proc.communicate(timeout=1800)
+            semgrep_proc.communicate(timeout=1800)
             rc = semgrep_proc.returncode
         except subprocess.TimeoutExpired:
             semgrep_proc.kill()
             semgrep_proc.communicate()
             rc = -1
-            print(f"❌ Semgrep scan timed out (30m)")
+            print("❌ Semgrep scan timed out (30m)")
             logger.error("Semgrep scan timed out")
             if not run_codeql:
                 sys.exit(1)
 
         if rc in (0, 1):
             scanner_out_dir = RaptorConfig.get_out_dir()
-            scan_dirs = sorted(scanner_out_dir.glob("scan_*"), key=lambda p: p.stat().st_mtime, reverse=True)
+            scan_dirs = sorted(
+                scanner_out_dir.glob("scan_*"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
 
             if scan_dirs:
                 actual_scan_dir = scan_dirs[0]
@@ -399,14 +477,20 @@ Examples:
 
                 scan_metrics_file = actual_scan_dir / "scan_metrics.json"
                 if scan_metrics_file.exists():
-                    with open(scan_metrics_file) as f:
+                    with open(scan_metrics_file, encoding="utf-8") as f:
                         semgrep_metrics = json.load(f)
 
-                    print(f"\n✓ Semgrep scan complete:")
-                    print(f"  - Files scanned: {semgrep_metrics.get('total_files_scanned', 0)}")
+                    print("\n✓ Semgrep scan complete:")
+                    print(
+                        f"  - Files scanned: {semgrep_metrics.get('total_files_scanned', 0)}"
+                    )
                     print(f"  - Findings: {semgrep_metrics.get('total_findings', 0)}")
-                    print(f"  - Critical: {semgrep_metrics.get('findings_by_severity', {}).get('error', 0)}")
-                    print(f"  - Warnings: {semgrep_metrics.get('findings_by_severity', {}).get('warning', 0)}")
+                    print(
+                        f"  - Critical: {semgrep_metrics.get('findings_by_severity', {}).get('error', 0)}"
+                    )
+                    print(
+                        f"  - Warnings: {semgrep_metrics.get('findings_by_severity', {}).get('warning', 0)}"
+                    )
 
                 sarif_file = actual_scan_dir / "combined.sarif"
                 if sarif_file.exists():
@@ -422,20 +506,20 @@ Examples:
     # ---- Collect CodeQL results ----
     if codeql_proc:
         try:
-            codeql_stdout, codeql_stderr = codeql_proc.communicate(timeout=1800)
+            codeql_proc.communicate(timeout=1800)
             rc = codeql_proc.returncode
         except subprocess.TimeoutExpired:
             codeql_proc.kill()
             codeql_proc.communicate()
             rc = -1
-            print(f"❌ CodeQL scan timed out (30m)")
+            print("❌ CodeQL scan timed out (30m)")
             logger.error("CodeQL scan timed out")
 
         if rc != 0:
             if all_sarif_files:
-                print(f"⚠️  CodeQL scan failed — continuing with existing findings")
+                print("⚠️  CodeQL scan failed — continuing with existing findings")
             else:
-                print(f"⚠️  CodeQL scan failed — no findings from any scanner")
+                print("⚠️  CodeQL scan failed — no findings from any scanner")
             logger.warning(f"CodeQL scan failed - rc={rc}")
             if args.codeql_only:
                 print("❌ CodeQL-only mode failed")
@@ -445,14 +529,16 @@ Examples:
             codeql_report = codeql_out_dir / "codeql_report.json"
 
             if codeql_report.exists():
-                with open(codeql_report) as f:
+                with open(codeql_report, encoding="utf-8") as f:
                     codeql_metrics = json.load(f)
 
-                total_findings = codeql_metrics.get('total_findings', 0)
-                sarif_files = codeql_metrics.get('sarif_files', [])
+                total_findings = codeql_metrics.get("total_findings", 0)
+                sarif_files = codeql_metrics.get("sarif_files", [])
 
-                print(f"\n✓ CodeQL scan complete:")
-                print(f"  - Languages: {', '.join(codeql_metrics.get('languages_detected', {}).keys())}")
+                print("\n✓ CodeQL scan complete:")
+                print(
+                    f"  - Languages: {', '.join(codeql_metrics.get('languages_detected', {}).keys())}"
+                )
                 print(f"  - Findings: {total_findings}")
                 print(f"  - SARIF files: {len(sarif_files)}")
 
@@ -465,19 +551,21 @@ Examples:
         sys.exit(1)
 
     # Combine metrics
-    total_findings = semgrep_metrics.get('total_findings', 0) + codeql_metrics.get('total_findings', 0)
+    total_findings = semgrep_metrics.get("total_findings", 0) + codeql_metrics.get(
+        "total_findings", 0
+    )
     scan_metrics = {
-        'total_findings': total_findings,
-        'total_files_scanned': semgrep_metrics.get('total_files_scanned', 0),
-        'findings_by_severity': semgrep_metrics.get('findings_by_severity', {}),
-        'semgrep': semgrep_metrics,
-        'codeql': codeql_metrics,
+        "total_findings": total_findings,
+        "total_files_scanned": semgrep_metrics.get("total_files_scanned", 0),
+        "findings_by_severity": semgrep_metrics.get("findings_by_severity", {}),
+        "semgrep": semgrep_metrics,
+        "codeql": codeql_metrics,
     }
 
     sarif_files = all_sarif_files
 
     print(f"\n{'=' * 70}")
-    print(f"✓ PHASE 1 COMPLETE")
+    print("✓ PHASE 1 COMPLETE")
     print(f"{'=' * 70}")
     print(f"Total findings: {total_findings}")
     if semgrep_metrics:
@@ -520,7 +608,7 @@ Examples:
         print("    1. Set ANTHROPIC_API_KEY environment variable, OR")
         print("    2. Set OPENAI_API_KEY / GEMINI_API_KEY / MISTRAL_API_KEY, OR")
         print("    3. Run Ollama locally (https://ollama.ai), OR")
-        print("    4. Run inside Claude Code (claude)")
+        print("    4. Install GitHub Copilot CLI (`copilot`)")
         logger.warning("Phase 3 skipped - No LLM provider configured")
     else:
         autonomous_out = out_dir / "autonomous"
@@ -533,47 +621,66 @@ Examples:
             analysis_cmd = [
                 "python3",
                 str(script_root / "packages/llm_analysis/agent.py"),
-                "--repo", str(repo_path),
-                "--findings", str(validated_findings_path),
-                "--out", str(autonomous_out),
-                "--max-findings", str(args.max_findings)
+                "--repo",
+                str(repo_path),
+                "--findings",
+                str(validated_findings_path),
+                "--out",
+                str(autonomous_out),
+                "--max-findings",
+                str(args.max_findings),
             ]
         else:
-            analysis_cmd = [
-                "python3",
-                str(script_root / "packages/llm_analysis/agent.py"),
-                "--repo", str(repo_path),
-                "--sarif"
-            ] + [str(f) for f in sarif_files] + [
-                "--out", str(autonomous_out),
-                "--max-findings", str(args.max_findings)
-            ]
+            analysis_cmd = (
+                [
+                    "python3",
+                    str(script_root / "packages/llm_analysis/agent.py"),
+                    "--repo",
+                    str(repo_path),
+                    "--sarif",
+                ]
+                + [str(f) for f in sarif_files]
+                + [
+                    "--out",
+                    str(autonomous_out),
+                    "--max-findings",
+                    str(args.max_findings),
+                ]
+            )
 
         # If Phase 4 will orchestrate, tell agent to prep only (skip LLM calls)
-        if (llm_env.claude_code or llm_env.external_llm) and not args.no_orchestration:
+        if (llm_env.copilot_cli or llm_env.external_llm) and not args.no_orchestration:
             analysis_cmd.append("--prep-only")
 
-        rc, stdout, stderr = run_command_streaming(analysis_cmd, "Analysing vulnerabilities autonomously")
+        rc, stdout, stderr = run_command_streaming(
+            analysis_cmd, "Analysing vulnerabilities autonomously"
+        )
 
         # Parse analysis results
         analysis_report = autonomous_out / "autonomous_analysis_report.json"
         if analysis_report.exists():
-            with open(analysis_report) as f:
+            with open(analysis_report, encoding="utf-8") as f:
                 analysis = json.load(f)
 
-            if analysis.get('mode') == 'prep_only':
-                print(f"\n✓ Prep complete: {analysis.get('processed', 0)} findings ready for Phase 4")
+            if analysis.get("mode") == "prep_only":
+                print(
+                    f"\n✓ Prep complete: {analysis.get('processed', 0)} findings ready for Phase 4"
+                )
             else:
-                print(f"\n✓ Analysis complete:")
+                print("\n✓ Analysis complete:")
                 print(f"  - Analysed: {analysis.get('analyzed', 0)}")
                 print(f"  - Exploitable: {analysis.get('exploitable', 0)}")
-                print(f"  - Exploits generated: {analysis.get('exploits_generated', 0)}")
+                print(
+                    f"  - Exploits generated: {analysis.get('exploits_generated', 0)}"
+                )
                 print(f"  - Patches generated: {analysis.get('patches_generated', 0)}")
 
                 if args.codeql or args.codeql_only:
-                    print(f"  - CodeQL dataflow paths validated: {analysis.get('dataflow_validated', 0)}")
+                    print(
+                        f"  - CodeQL dataflow paths validated: {analysis.get('dataflow_validated', 0)}"
+                    )
         else:
-            print(f"⚠️  Analysis failed or produced no output")
+            print("⚠️  Analysis failed or produced no output")
             if stderr:
                 print(f"    Error: {stderr[:500]}")
             logger.warning(f"Phase 3 failed - rc={rc}, stderr={stderr[:200]}")
@@ -583,7 +690,7 @@ Examples:
     # PHASE 4: AGENTIC ORCHESTRATION
     # ========================================================================
     orchestration_result = None
-    if (llm_env.claude_code or llm_env.external_llm) and not args.no_orchestration:
+    if (llm_env.copilot_cli or llm_env.external_llm) and not args.no_orchestration:
         print("\n" + "=" * 70)
         print("PHASE 4: AGENTIC ORCHESTRATION")
         print("=" * 70)
@@ -593,9 +700,11 @@ Examples:
             llm_config = None
             if llm_env.external_llm:
                 from packages.llm_analysis.llm.config import LLMConfig
+
                 llm_config = LLMConfig()
 
             from packages.llm_analysis.orchestrator import orchestrate
+
             orchestration_result = orchestrate(
                 prep_report_path=analysis_report,
                 repo_path=repo_path,
@@ -609,7 +718,7 @@ Examples:
             print("\n  No analysis report from Phase 3 — skipping orchestration")
     elif not llm_env.llm_available:
         print("\n  No LLM available. Findings prepared for manual review.")
-        print("  For automated analysis, set an API key or install Claude Code.")
+        print("  For automated analysis, set an API key or install GitHub Copilot CLI.")
 
     # ========================================================================
     # FINAL REPORT
@@ -631,16 +740,26 @@ Examples:
         "phases": {
             "scanning": {
                 "completed": True,
-                "total_findings": scan_metrics.get('total_findings', 0),
-                "files_scanned": scan_metrics.get('total_files_scanned', 0),
+                "total_findings": scan_metrics.get("total_findings", 0),
+                "files_scanned": scan_metrics.get("total_files_scanned", 0),
                 "semgrep": {
                     "enabled": not args.codeql_only,
-                    "findings": semgrep_metrics.get('total_findings', 0) if semgrep_metrics else 0,
+                    "findings": (
+                        semgrep_metrics.get("total_findings", 0)
+                        if semgrep_metrics
+                        else 0
+                    ),
                 },
                 "codeql": {
                     "enabled": args.codeql or args.codeql_only,
-                    "findings": codeql_metrics.get('total_findings', 0) if codeql_metrics else 0,
-                    "languages": list(codeql_metrics.get('languages_detected', {}).keys()) if codeql_metrics else [],
+                    "findings": (
+                        codeql_metrics.get("total_findings", 0) if codeql_metrics else 0
+                    ),
+                    "languages": (
+                        list(codeql_metrics.get("languages_detected", {}).keys())
+                        if codeql_metrics
+                        else []
+                    ),
                 },
             },
             "exploitability_validation": {
@@ -648,37 +767,67 @@ Examples:
                 "skipped": args.skip_validation,
                 "original_findings": total_findings,
                 "validated_findings": validated_findings,
-                "noise_reduction_percent": ((total_findings - validated_findings) / total_findings * 100) if total_findings > 0 else 0,
+                "noise_reduction_percent": (
+                    ((total_findings - validated_findings) / total_findings * 100)
+                    if total_findings > 0
+                    else 0
+                ),
             },
             "autonomous_analysis": {
                 "completed": bool(analysis),
                 "skipped": not llm_env.llm_available,
-                "exploitable": analysis.get('exploitable', 0),
-                "exploits_generated": analysis.get('exploits_generated', 0),
-                "patches_generated": analysis.get('patches_generated', 0),
-                "dataflow_validated": analysis.get('dataflow_validated', 0) if (args.codeql or args.codeql_only) else 0,
+                "exploitable": analysis.get("exploitable", 0),
+                "exploits_generated": analysis.get("exploits_generated", 0),
+                "patches_generated": analysis.get("patches_generated", 0),
+                "dataflow_validated": (
+                    analysis.get("dataflow_validated", 0)
+                    if (args.codeql or args.codeql_only)
+                    else 0
+                ),
             },
-            "orchestration": orchestration_result.get("orchestration", {}) if orchestration_result else {
-                "completed": False,
-                "mode": "none",
-            },
+            "orchestration": (
+                orchestration_result.get("orchestration", {})
+                if orchestration_result
+                else {
+                    "completed": False,
+                    "mode": "none",
+                }
+            ),
         },
         "outputs": {
             "sarif_files": [str(f) for f in sarif_files],
-            "validation_report": str(out_dir / "validation" / "findings.json") if validation_result else None,
-            "autonomous_report": str(analysis_report) if analysis_report and analysis_report.exists() else None,
-            "orchestrated_report": str(out_dir / "orchestrated_report.json") if orchestration_result else None,
-            "exploits_directory": str(autonomous_out / "exploits") if autonomous_out else None,
-            "patches_directory": str(autonomous_out / "patches") if autonomous_out else None,
-            "exploit_feasibility": str(out_dir / "exploit_feasibility.txt") if mitigation_result else None,
-        }
+            "validation_report": (
+                str(out_dir / "validation" / "findings.json")
+                if validation_result
+                else None
+            ),
+            "autonomous_report": (
+                str(analysis_report)
+                if analysis_report and analysis_report.exists()
+                else None
+            ),
+            "orchestrated_report": (
+                str(out_dir / "orchestrated_report.json")
+                if orchestration_result
+                else None
+            ),
+            "exploits_directory": (
+                str(autonomous_out / "exploits") if autonomous_out else None
+            ),
+            "patches_directory": (
+                str(autonomous_out / "patches") if autonomous_out else None
+            ),
+            "exploit_feasibility": (
+                str(out_dir / "exploit_feasibility.txt") if mitigation_result else None
+            ),
+        },
     }
 
     report_file = out_dir / "raptor_agentic_report.json"
-    with open(report_file, "w") as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         json.dump(final_report, f, indent=2)
 
-    print(f"\n📊 Summary:")
+    print("\n📊 Summary:")
     print(f"   Total findings: {scan_metrics.get('total_findings', 0)}")
     if semgrep_metrics:
         print(f"     Semgrep: {semgrep_metrics.get('total_findings', 0)}")
@@ -689,27 +838,39 @@ Examples:
         if total_findings > 0:
             reduction = ((total_findings - validated_findings) / total_findings) * 100
             print(f"   Noise reduction: {reduction:.1f}%")
-    analysed_count = analysis.get('analyzed', 0)
+    analysed_count = analysis.get("analyzed", 0)
     if orchestration_result:
-        analysed_count = max(analysed_count, orchestration_result.get("orchestration", {}).get("findings_analysed", 0))
+        analysed_count = max(
+            analysed_count,
+            orchestration_result.get("orchestration", {}).get("findings_analysed", 0),
+        )
     if analysed_count > 0 and analysed_count < validated_findings:
-        print(f"   Analysed: {analysed_count} of {validated_findings} (capped by --max-findings {args.max_findings})")
+        print(
+            f"   Analysed: {analysed_count} of {validated_findings} (capped by --max-findings {args.max_findings})"
+        )
     orch_data = orchestration_result or {}
-    exploitable_count = max(analysis.get('exploitable', 0), orch_data.get('exploitable', 0))
-    exploits_count = analysis.get('exploits_generated', 0)
-    patches_count = analysis.get('patches_generated', 0)
+    exploitable_count = max(
+        analysis.get("exploitable", 0), orch_data.get("exploitable", 0)
+    )
+    exploits_count = analysis.get("exploits_generated", 0)
+    patches_count = analysis.get("patches_generated", 0)
     if orchestration_result:
-        exploits_count = max(exploits_count, orchestration_result.get('exploits_generated', 0))
-        patches_count = max(patches_count, orchestration_result.get('patches_generated', 0))
+        exploits_count = max(
+            exploits_count, orchestration_result.get("exploits_generated", 0)
+        )
+        patches_count = max(
+            patches_count, orchestration_result.get("patches_generated", 0)
+        )
     print(f"   Exploitable: {exploitable_count}")
     print(f"   Exploits generated: {exploits_count}")
     print(f"   Patches generated: {patches_count}")
-    if (args.codeql or args.codeql_only) and analysis.get('dataflow_validated', 0) > 0:
+    if (args.codeql or args.codeql_only) and analysis.get("dataflow_validated", 0) > 0:
         print(f"   Dataflow paths validated: {analysis.get('dataflow_validated', 0)}")
     from packages.llm_analysis.dispatch import _format_elapsed
+
     print(f"   Duration: {_format_elapsed(workflow_duration)}")
 
-    print(f"\n📁 Outputs:")
+    print("\n📁 Outputs:")
     print(f"   Main report: {report_file}")
     if mitigation_result:
         print(f"   Exploit feasibility: {out_dir / 'exploit_feasibility.txt'}")
@@ -728,21 +889,28 @@ Examples:
         print("   ✓ Scanned with Semgrep")
     if codeql_metrics:
         print("   ✓ Scanned with CodeQL")
-        if codeql_metrics.get('total_findings', 0) > 0:
+        if codeql_metrics.get("total_findings", 0) > 0:
             print("   ✓ Validated dataflow paths")
     if validation_result:
-        if isinstance(validation_result, dict) and validation_result.get('mode') == 'deduplication_only':
+        if (
+            isinstance(validation_result, dict)
+            and validation_result.get("mode") == "deduplication_only"
+        ):
             print("   ✓ Deduplicated findings")
         else:
             print("   ✓ Validated exploitability (filtered noise)")
     print("   ✓ Analysed vulnerabilities")
     if exploits_count > 0:
-        print(f"   ✓ Generated {exploits_count} exploit{'s' if exploits_count != 1 else ''}")
+        print(
+            f"   ✓ Generated {exploits_count} exploit{'s' if exploits_count != 1 else ''}"
+        )
     if patches_count > 0:
         print(f"   ✓ Created {patches_count} patch{'es' if patches_count != 1 else ''}")
     if orchestration_result:
         orch = orchestration_result.get("orchestration", {})
-        print(f"   ✓ Orchestrated via Claude Code ({orch.get('findings_analysed', 0)} findings)")
+        print(
+            f"   ✓ Orchestrated via GitHub Copilot CLI ({orch.get('findings_analysed', 0)} findings)"
+        )
     print("\nReview the outputs and apply patches as needed.")
     print("=" * 70)
 

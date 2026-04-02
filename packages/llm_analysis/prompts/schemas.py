@@ -24,7 +24,7 @@ DATAFLOW_SCHEMA_FIELDS = {
     "dataflow_exploitable": "boolean - is the complete dataflow path exploitable?",
 }
 
-# JSON Schema for CC sub-agent structured output (claude -p --json-schema).
+# JSON Schema for CLI sub-agent structured output.
 # This is a proper JSON Schema, unlike ANALYSIS_SCHEMA which uses descriptive strings.
 FINDING_RESULT_SCHEMA = {
     "type": "object",
