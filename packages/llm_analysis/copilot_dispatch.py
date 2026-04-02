@@ -374,7 +374,8 @@ def parse_copilot_freeform(
     }
 
 
-# Backward-compatible aliases for older imports.
+# Deprecated backward-compatible aliases for older imports.
+# Do not use these in new code; prefer the copilot_* names above.
 invoke_cc_simple = invoke_copilot_simple
 parse_cc_result = parse_copilot_result
 parse_cc_freeform = parse_copilot_freeform

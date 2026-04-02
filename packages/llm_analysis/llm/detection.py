@@ -30,12 +30,12 @@ logger = get_logger()
 # SDK availability flags — canonical source, imported by other modules
 try:
     OPENAI_SDK_AVAILABLE = find_spec("openai") is not None
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     OPENAI_SDK_AVAILABLE = False
 
 try:
     ANTHROPIC_SDK_AVAILABLE = find_spec("anthropic") is not None
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     ANTHROPIC_SDK_AVAILABLE = False
 
 
@@ -55,7 +55,7 @@ class LLMAvailability:
 
     @property
     def claude_code(self) -> bool:
-        """Backward-compatible alias for older callers."""
+        """Deprecated backward-compatible alias; prefer copilot_cli."""
         return self.copilot_cli
 
 
