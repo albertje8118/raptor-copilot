@@ -24,9 +24,11 @@ def _read_logo() -> str:
 def _read_random_quote() -> str:
     path = REPO_ROOT / "hackers-8ball"
     if path.exists():
-        lines = [l.strip() for l in path.read_text().splitlines() if l.strip()]
-        if lines:
-            return random.choice(lines)
+        quote_lines = [
+            line.strip() for line in path.read_text().splitlines() if line.strip()
+        ]
+        if quote_lines:
+            return random.choice(quote_lines)
     return '"Hack the planet!"'
 
 
@@ -47,9 +49,13 @@ def _check_tools() -> tuple[list, list, set]:
 
     # Group checks (e.g., need at least one scanner)
     for group_name, group in RaptorConfig.TOOL_GROUPS.items():
-        members = sorted(n for n, d in RaptorConfig.TOOL_DEPS.items() if d.get("group") == group_name)
+        members = sorted(
+            n for n, d in RaptorConfig.TOOL_DEPS.items() if d.get("group") == group_name
+        )
         if not any(m in available for m in members):
-            warnings.append(f"{group['affects']} unavailable \u2014 no scanner ({' or '.join(members)})")
+            warnings.append(
+                f"{group['affects']} unavailable \u2014 no scanner ({' or '.join(members)})"
+            )
             for cmd in group["affects"].split(", "):
                 unavailable_features.add(cmd.strip())
 
@@ -75,7 +81,9 @@ def _check_llm() -> tuple[list, list]:
 
     try:
         from packages.llm_analysis.llm.detection import (
-            detect_llm_availability, OPENAI_SDK_AVAILABLE, ANTHROPIC_SDK_AVAILABLE,
+            detect_llm_availability,
+            OPENAI_SDK_AVAILABLE,
+            ANTHROPIC_SDK_AVAILABLE,
         )
         from packages.llm_analysis.llm.model_data import PROVIDER_ENV_KEYS
 
@@ -92,18 +100,26 @@ def _check_llm() -> tuple[list, list]:
             if os.getenv(env_var):
                 sdk_name, ok = sdk_reqs.get(provider, ("openai", OPENAI_SDK_AVAILABLE))
                 if not ok:
-                    warnings.append(f"{env_var} set but {sdk_name} SDK missing \u2014 pip install {sdk_name}")
+                    warnings.append(
+                        f"{env_var} set but {sdk_name} SDK missing \u2014 pip install {sdk_name}"
+                    )
 
         if avail.external_llm:
             from packages.llm_analysis.llm.config import LLMConfig
+
             cfg = LLMConfig()
             if cfg.primary_model:
                 pm = cfg.primary_model
                 src = _key_source(pm.provider, PROVIDER_ENV_KEYS)
                 lines.append(f"   llm: {pm.provider}/{pm.model_name} (primary, {src})")
                 for fm in cfg.fallback_models[:3]:
-                    if f"{fm.provider}/{fm.model_name}" != f"{pm.provider}/{pm.model_name}":
-                        lines.append(f"        {fm.provider}/{fm.model_name} (fallback, {_key_source(fm.provider, PROVIDER_ENV_KEYS)})")
+                    if (
+                        f"{fm.provider}/{fm.model_name}"
+                        != f"{pm.provider}/{pm.model_name}"
+                    ):
+                        lines.append(
+                            f"        {fm.provider}/{fm.model_name} (fallback, {_key_source(fm.provider, PROVIDER_ENV_KEYS)})"
+                        )
         else:
             lines.append("   llm: no external LLM configured")
 
@@ -142,10 +158,16 @@ def _check_env(unavailable_features: set) -> tuple[list, list]:
     try:
         stat = os.statvfs(str(out_dir if out_dir.exists() else REPO_ROOT))
         free_bytes = stat.f_bavail * stat.f_frsize
-        free_gb = free_bytes / (1024 ** 3)
-        parts.append(f"disk {free_gb:.0f} GB free" if free_gb >= 1 else f"disk {free_bytes / (1024**2):.0f} MB free")
+        free_gb = free_bytes / (1024**3)
+        parts.append(
+            f"disk {free_gb:.0f} GB free"
+            if free_gb >= 1
+            else f"disk {free_bytes / (1024**2):.0f} MB free"
+        )
         if free_gb < 5 and "/fuzz" not in unavailable_features:
-            warnings.append(f"Low disk space ({free_gb:.1f} GB) \u2014 fuzzing may fail")
+            warnings.append(
+                f"Low disk space ({free_gb:.1f} GB) \u2014 fuzzing may fail"
+            )
     except OSError:
         pass
 
@@ -160,7 +182,16 @@ def _check_env(unavailable_features: set) -> tuple[list, list]:
     return parts, warnings
 
 
-def _format(logo, quote, tool_results, tool_warnings, llm_lines, llm_warnings, env_parts, env_warnings):
+def _format(
+    logo,
+    quote,
+    tool_results,
+    tool_warnings,
+    llm_lines,
+    llm_warnings,
+    env_parts,
+    env_warnings,
+):
     lines = []
 
     if logo:
@@ -180,9 +211,9 @@ def _format(logo, quote, tool_results, tool_warnings, llm_lines, llm_warnings, e
     # Warnings: unavailable first, then limited, then other
     all_raw = tool_warnings + env_warnings + llm_warnings
     ordered = (
-        [w for w in all_raw if "unavailable" in w] +
-        [w for w in all_raw if "limited" in w] +
-        [w for w in all_raw if "unavailable" not in w and "limited" not in w]
+        [w for w in all_raw if "unavailable" in w]
+        + [w for w in all_raw if "limited" in w]
+        + [w for w in all_raw if "unavailable" not in w and "limited" not in w]
     )
     if ordered:
         lines.append(f"  warn: {ordered[0]}")
@@ -190,7 +221,9 @@ def _format(logo, quote, tool_results, tool_warnings, llm_lines, llm_warnings, e
             lines.append(f"        {w}")
 
     lines.append("")
-    lines.append("  For defensive security research, education, and authorized penetration testing.")
+    lines.append(
+        "  For defensive security research, education, and authorized penetration testing."
+    )
     lines.append("")
     lines.append(f"raptor:~$ {quote}")
 
@@ -203,6 +236,7 @@ def main():
 
     try:
         import logging
+
         logging.disable(logging.WARNING)
 
         tool_results, tool_warnings, unavailable = _check_tools()
@@ -211,7 +245,16 @@ def main():
 
         logging.disable(logging.NOTSET)
 
-        output = _format(logo, quote, tool_results, tool_warnings, llm_lines, llm_warnings, env_parts, env_warnings)
+        output = _format(
+            logo,
+            quote,
+            tool_results,
+            tool_warnings,
+            llm_lines,
+            llm_warnings,
+            env_parts,
+            env_warnings,
+        )
     except Exception:
         output = f"{logo}\n\nraptor:~$ {quote}"
 

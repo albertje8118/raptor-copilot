@@ -12,6 +12,7 @@ instead of ad-hoc env var or PATH checks.
 import os
 import shutil
 import sys
+from importlib.util import find_spec
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -28,14 +29,12 @@ logger = get_logger()
 
 # SDK availability flags — canonical source, imported by other modules
 try:
-    import openai as _openai_module
-    OPENAI_SDK_AVAILABLE = True
+    OPENAI_SDK_AVAILABLE = find_spec("openai") is not None
 except ImportError:
     OPENAI_SDK_AVAILABLE = False
 
 try:
-    import anthropic as _anthropic_module
-    ANTHROPIC_SDK_AVAILABLE = True
+    ANTHROPIC_SDK_AVAILABLE = find_spec("anthropic") is not None
 except ImportError:
     ANTHROPIC_SDK_AVAILABLE = False
 
@@ -47,9 +46,12 @@ class LLMAvailability:
     Single source of truth — no caller should check env vars,
     PATH, or Ollama endpoints directly.
     """
+
     external_llm: bool  # An LLM reachable via SDK (cloud keys, Ollama, config file)
-    copilot_cli: bool   # GitHub Copilot CLI is installed on PATH
-    llm_available: bool  # Someone will do the reasoning work (external_llm or copilot_cli)
+    copilot_cli: bool  # GitHub Copilot CLI is installed on PATH
+    llm_available: (
+        bool  # Someone will do the reasoning work (external_llm or copilot_cli)
+    )
 
     @property
     def claude_code(self) -> bool:
@@ -59,9 +61,11 @@ class LLMAvailability:
 
 def _validate_ollama_url(url: str) -> str:
     """Validate and normalize Ollama URL."""
-    url = url.rstrip('/')
-    if not url.startswith(('http://', 'https://')):
-        raise ValueError(f"Invalid Ollama URL (must start with http:// or https://): {url}")
+    url = url.rstrip("/")
+    if not url.startswith(("http://", "https://")):
+        raise ValueError(
+            f"Invalid Ollama URL (must start with http:// or https://): {url}"
+        )
     return url
 
 
@@ -81,10 +85,15 @@ def _get_available_ollama_models() -> List[str]:
         response = requests.get(f"{ollama_url}/api/tags", timeout=2)
         if response.status_code == 200:
             data = response.json()
-            _cached_ollama_models = [model['name'] for model in data.get('models', [])]
+            _cached_ollama_models = [model["name"] for model in data.get("models", [])]
             return _cached_ollama_models
     except Exception as e:
-        ollama_display = RaptorConfig.OLLAMA_HOST if 'localhost' in RaptorConfig.OLLAMA_HOST or '127.0.0.1' in RaptorConfig.OLLAMA_HOST else '[REMOTE-OLLAMA]'
+        ollama_display = (
+            RaptorConfig.OLLAMA_HOST
+            if "localhost" in RaptorConfig.OLLAMA_HOST
+            or "127.0.0.1" in RaptorConfig.OLLAMA_HOST
+            else "[REMOTE-OLLAMA]"
+        )
         logger.debug(f"Could not connect to Ollama at {ollama_display}: {e}")
     _cached_ollama_models = []
     return []
@@ -97,6 +106,7 @@ def _check_litellm_installed() -> bool:
     """
     try:
         from importlib.metadata import version as pkg_version, PackageNotFoundError
+
         try:
             installed = pkg_version("litellm")
 
@@ -119,23 +129,18 @@ def _check_litellm_installed() -> bool:
                 )
                 if installed == "1.82.8":
                     msg += (
-                        f"  Version 1.82.8 runs on ANY Python startup via a .pth file.\n"
-                        f"  Do NOT use pip to remove it — pip invokes Python, triggering the payload.\n"
-                        f"\n"
-                        f"  Safe removal (no Python invoked):\n"
-                        f"    find / -path '*/litellm*' -name '*.pth' -delete 2>/dev/null\n"
-                        f"    find / -path '*/site-packages/litellm*' -exec rm -rf {{}} + 2>/dev/null\n"
-                        f"\n"
-                        f"  Then rotate all API keys, SSH keys, and cloud credentials.\n"
+                        "  Version 1.82.8 runs on ANY Python startup via a .pth file.\n"
+                        "  Do NOT use pip to remove it — pip invokes Python, triggering the payload.\n"
+                        "\n"
+                        "  Safe removal (no Python invoked):\n"
+                        "    find / -path '*/litellm*' -name '*.pth' -delete 2>/dev/null\n"
+                        "    find / -path '*/site-packages/litellm*' -exec rm -rf {} + 2>/dev/null\n"
+                        "\n"
+                        "  Then rotate all API keys, SSH keys, and cloud credentials.\n"
                     )
                 else:
-                    msg += (
-                        f"  Remove it: pip uninstall litellm\n"
-                    )
-                msg += (
-                    f"\n"
-                    f"  Ref: https://github.com/BerriAI/litellm/issues/24518\n"
-                )
+                    msg += "  Remove it: pip uninstall litellm\n"
+                msg += "\n" "  Ref: https://github.com/BerriAI/litellm/issues/24518\n"
                 print(msg)
                 raise SystemExit(
                     f"RAPTOR cannot run with litellm {installed} installed. "
@@ -164,35 +169,34 @@ def _try_auto_migrate(old_config: Path, new_config: Path) -> bool:
         return False
 
     import json
-    from .model_data import PROVIDER_ENV_KEYS
 
     try:
-        with open(old_config) as f:
+        with open(old_config, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
-        if not data or not isinstance(data.get('model_list'), list):
+        if not data or not isinstance(data.get("model_list"), list):
             return False
 
         models = []
-        for entry in data['model_list']:
+        for entry in data["model_list"]:
             if not isinstance(entry, dict):
                 continue
 
-            params = entry.get('litellm_params', {}) or {}
-            underlying = params.get('model', '')
-            if not underlying or '/' not in underlying:
+            params = entry.get("litellm_params", {}) or {}
+            underlying = params.get("model", "")
+            if not underlying or "/" not in underlying:
                 continue
 
-            provider = underlying.split('/')[0]
-            model_name = underlying.split('/', 1)[1]
+            provider = underlying.split("/")[0]
+            model_name = underlying.split("/", 1)[1]
 
             model_entry = {"provider": provider, "model": model_name}
 
             # Resolve API key
-            api_key_val = params.get('api_key', '')
+            api_key_val = params.get("api_key", "")
             if api_key_val and isinstance(api_key_val, str):
-                if api_key_val.startswith('os.environ/'):
-                    env_var = api_key_val.replace('os.environ/', '')
+                if api_key_val.startswith("os.environ/"):
+                    env_var = api_key_val.replace("os.environ/", "")
                     key = os.getenv(env_var)
                     if key:
                         # Don't store resolved keys — env var takes precedence
@@ -210,22 +214,21 @@ def _try_auto_migrate(old_config: Path, new_config: Path) -> bool:
 
         # Write new config
         new_config.parent.mkdir(parents=True, exist_ok=True)
-        with open(new_config, 'w') as f:
+        with open(new_config, "w", encoding="utf-8") as f:
             json.dump({"models": models}, f, indent=2)
         os.chmod(new_config, 0o600)
 
         # Check if any keys need attention
         needs_keys = any(
-            e.get("api_key", "").startswith("${") or "api_key" not in e
-            for e in models
+            e.get("api_key", "").startswith("${") or "api_key" not in e for e in models
         )
         key_msg = ""
         if needs_keys:
             key_msg = (
-                f"\n"
-                f"  ⚠️  Some models need API keys. Either:\n"
-                f"    - Set env vars (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.), or\n"
-                f"    - Replace placeholders in the JSON with actual keys\n"
+                "\n"
+                "  ⚠️  Some models need API keys. Either:\n"
+                "    - Set env vars (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.), or\n"
+                "    - Replace placeholders in the JSON with actual keys\n"
             )
 
         print(
@@ -312,8 +315,9 @@ def _read_config_models() -> list:
     Returns a list of model dicts, or empty list on any error.
     """
     import json
+
     try:
-        config_path_str = os.getenv('RAPTOR_CONFIG')
+        config_path_str = os.getenv("RAPTOR_CONFIG")
         if config_path_str:
             config_path = Path(config_path_str).resolve()
         else:
@@ -322,13 +326,15 @@ def _read_config_models() -> list:
         if not config_path.exists():
             return []
 
-        raw = config_path.read_text()
+        raw = config_path.read_text(encoding="utf-8")
         if not raw.strip():
             return []
 
         # Strip // line comments
-        lines = [l for l in raw.splitlines() if not l.lstrip().startswith("//")]
-        data = json.loads("\n".join(lines))
+        uncommented_lines = [
+            line for line in raw.splitlines() if not line.lstrip().startswith("//")
+        ]
+        data = json.loads("\n".join(uncommented_lines))
 
         # Accept both {"models": [...]} and bare [...]
         if isinstance(data, dict):
@@ -404,7 +410,9 @@ def detect_llm_availability() -> LLMAvailability:
         _check_litellm_migration()
 
     # Check cloud API keys, gated on SDK availability
-    has_anthropic = bool(os.getenv("ANTHROPIC_API_KEY")) and (ANTHROPIC_SDK_AVAILABLE or OPENAI_SDK_AVAILABLE)
+    has_anthropic = bool(os.getenv("ANTHROPIC_API_KEY")) and (
+        ANTHROPIC_SDK_AVAILABLE or OPENAI_SDK_AVAILABLE
+    )
     has_openai = bool(os.getenv("OPENAI_API_KEY")) and OPENAI_SDK_AVAILABLE
     has_gemini = bool(os.getenv("GEMINI_API_KEY")) and OPENAI_SDK_AVAILABLE
     has_mistral = bool(os.getenv("MISTRAL_API_KEY")) and OPENAI_SDK_AVAILABLE
@@ -450,7 +458,10 @@ def _warn_unusable_keys():
     from .model_data import PROVIDER_ENV_KEYS
 
     sdk_requirements = {
-        "anthropic": ("anthropic or openai", ANTHROPIC_SDK_AVAILABLE or OPENAI_SDK_AVAILABLE),
+        "anthropic": (
+            "anthropic or openai",
+            ANTHROPIC_SDK_AVAILABLE or OPENAI_SDK_AVAILABLE,
+        ),
         "openai": ("openai", OPENAI_SDK_AVAILABLE),
         "gemini": ("openai", OPENAI_SDK_AVAILABLE),
         "mistral": ("openai", OPENAI_SDK_AVAILABLE),
@@ -458,7 +469,9 @@ def _warn_unusable_keys():
 
     for provider, env_var in PROVIDER_ENV_KEYS.items():
         if os.getenv(env_var):
-            sdk_name, available = sdk_requirements.get(provider, ("openai", OPENAI_SDK_AVAILABLE))
+            sdk_name, available = sdk_requirements.get(
+                provider, ("openai", OPENAI_SDK_AVAILABLE)
+            )
             if not available:
                 logger.warning(
                     f"{env_var} is set but the {sdk_name} SDK is not installed. "

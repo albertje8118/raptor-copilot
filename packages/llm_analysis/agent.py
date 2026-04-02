@@ -37,6 +37,7 @@ def get_vuln_type(rule_id: str) -> Optional[str]:
     """Map SARIF rule_id to vulnerability type for mitigation checks."""
     try:
         from packages.exploit_feasibility import get_vuln_type_for_rule
+
         return get_vuln_type_for_rule(rule_id)
     except ImportError:
         return None
@@ -67,7 +68,10 @@ class VulnerabilityContext:
 
         # Feasibility data from validation pipeline (if available)
         from packages.exploitability_validation.models import Feasibility
-        self.feasibility: Dict[str, Any] = Feasibility.from_dict(finding.get("feasibility")).to_dict()
+
+        self.feasibility: Dict[str, Any] = Feasibility.from_dict(
+            finding.get("feasibility")
+        ).to_dict()
         self.attack_path_ref: Optional[str] = self.feasibility.get("attack_path_ref")
 
         # Will be populated by LLM analysis
@@ -117,7 +121,9 @@ class VulnerabilityContext:
             logger.error(f"Error reading file {file_path}: {e}")
             return False
 
-    def _read_code_at_location(self, file_uri: str, line: int, context_lines: int = 5) -> str:
+    def _read_code_at_location(
+        self, file_uri: str, line: int, context_lines: int = 5
+    ) -> str:
         """
         Read code at a specific location with surrounding context.
 
@@ -165,9 +171,20 @@ class VulnerabilityContext:
             True if this looks like a sanitizer
         """
         sanitizer_keywords = [
-            'sanitiz', 'validat', 'filter', 'escape', 'encode',
-            'clean', 'strip', 'remove', 'replace', 'whitelist',
-            'blacklist', 'check', 'verify', 'safe'
+            "sanitiz",
+            "validat",
+            "filter",
+            "escape",
+            "encode",
+            "clean",
+            "strip",
+            "remove",
+            "replace",
+            "whitelist",
+            "blacklist",
+            "check",
+            "verify",
+            "safe",
         ]
 
         label_lower = label.lower()
@@ -193,7 +210,7 @@ class VulnerabilityContext:
                     "column": src.get("column", 0),
                     "label": src["label"],
                     "snippet": src.get("snippet", ""),
-                    "code": self._read_code_at_location(src["file"], src["line"])
+                    "code": self._read_code_at_location(src["file"], src["line"]),
                 }
 
             # Extract sink
@@ -205,7 +222,7 @@ class VulnerabilityContext:
                     "column": sink.get("column", 0),
                     "label": sink["label"],
                     "snippet": sink.get("snippet", ""),
-                    "code": self._read_code_at_location(sink["file"], sink["line"])
+                    "code": self._read_code_at_location(sink["file"], sink["line"]),
                 }
 
             # Extract intermediate steps
@@ -219,7 +236,7 @@ class VulnerabilityContext:
                     "label": step["label"],
                     "snippet": step.get("snippet", ""),
                     "is_sanitizer": is_sanitizer,
-                    "code": self._read_code_at_location(step["file"], step["line"])
+                    "code": self._read_code_at_location(step["file"], step["line"]),
                 }
 
                 self.dataflow_steps.append(step_info)
@@ -227,7 +244,9 @@ class VulnerabilityContext:
                 if is_sanitizer:
                     self.sanitizers_found.append(step["label"])
 
-            logger.info(f"✓ Extracted dataflow: {len(self.dataflow_steps)} steps, {len(self.sanitizers_found)} sanitizers")
+            logger.info(
+                f"✓ Extracted dataflow: {len(self.dataflow_steps)} steps, {len(self.sanitizers_found)} sanitizers"
+            )
             return True
 
         except Exception as e:
@@ -258,7 +277,9 @@ class VulnerabilityContext:
             result["surrounding_context"] = self.surrounding_context
 
         # Add feasibility data if present (always a dict, check for non-default)
-        if self.feasibility.get("status", "pending") != "pending" or self.feasibility.get("verdict"):
+        if self.feasibility.get(
+            "status", "pending"
+        ) != "pending" or self.feasibility.get("verdict"):
             result["feasibility"] = self.feasibility
 
         # Add dataflow information if present
@@ -269,7 +290,7 @@ class VulnerabilityContext:
                 "sink": self.dataflow_sink,
                 "steps": self.dataflow_steps,
                 "sanitizers_found": self.sanitizers_found,
-                "total_steps": len(self.dataflow_steps) + 2  # +2 for source and sink
+                "total_steps": len(self.dataflow_steps) + 2,  # +2 for source and sink
             }
         else:
             result["has_dataflow"] = False
@@ -287,6 +308,7 @@ def convert_validated_to_agent_format(data: dict) -> List[Dict[str, Any]]:
 
     try:
         from packages.exploitability_validation import normalize_findings
+
         normalize_findings(data)
     except ImportError:
         pass
@@ -302,27 +324,42 @@ def convert_validated_to_agent_format(data: dict) -> List[Dict[str, Any]]:
             continue
 
         feasibility_d = f.feasibility.to_dict()
-        converted.append({
-            "finding_id": f.id,
-            "rule_id": f.rule_id or f.vuln_type,
-            "file": f.file,
-            "startLine": f.line,
-            "endLine": f.line,
-            "snippet": f.proof.vulnerable_code,
-            "message": f.candidate_reasoning or f.message or f.rule_id or f"{f.vuln_type} in {f.function or 'unknown'}",
-            "level": "error" if f.final_status in ("exploitable", "likely_exploitable", "confirmed_constrained") else "warning",
-            "has_dataflow": bool(f.proof.flow),
-            "feasibility": feasibility_d,
-            "attack_path_ref": f.feasibility.attack_path_ref,
-            "ruling": f.ruling.to_dict(),
-            "final_status": f.final_status or "pending",
-        })
+        converted.append(
+            {
+                "finding_id": f.id,
+                "rule_id": f.rule_id or f.vuln_type,
+                "file": f.file,
+                "startLine": f.line,
+                "endLine": f.line,
+                "snippet": f.proof.vulnerable_code,
+                "message": f.candidate_reasoning
+                or f.message
+                or f.rule_id
+                or f"{f.vuln_type} in {f.function or 'unknown'}",
+                "level": (
+                    "error"
+                    if f.final_status
+                    in ("exploitable", "likely_exploitable", "confirmed_constrained")
+                    else "warning"
+                ),
+                "has_dataflow": bool(f.proof.flow),
+                "feasibility": feasibility_d,
+                "attack_path_ref": f.feasibility.attack_path_ref,
+                "ruling": f.ruling.to_dict(),
+                "final_status": f.final_status or "pending",
+            }
+        )
     return converted
 
 
 class AutonomousSecurityAgentV2:
-    def __init__(self, repo_path: Path, out_dir: Path, llm_config: Optional[LLMConfig] = None,
-                 prep_only: bool = False):
+    def __init__(
+        self,
+        repo_path: Path,
+        out_dir: Path,
+        llm_config: Optional[LLMConfig] = None,
+        prep_only: bool = False,
+    ):
         self.repo_path = repo_path
         self.out_dir = out_dir
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -334,7 +371,9 @@ class AutonomousSecurityAgentV2:
             # Caller explicitly requested prep-only (e.g. Copilot CLI will orchestrate)
             self.llm_config = None
             self.llm = CopilotCLIProvider()
-            logger.info("RAPTOR Autonomous Security Agent initialised (prep-only mode, --prep-only)")
+            logger.info(
+                "RAPTOR Autonomous Security Agent initialised (prep-only mode, --prep-only)"
+            )
             logger.info(f"Repository: {repo_path}")
             logger.info(f"Output: {out_dir}")
             print("\n🤖 Prep-only mode — Phase 4 will handle analysis")
@@ -347,22 +386,34 @@ class AutonomousSecurityAgentV2:
             logger.info("RAPTOR Autonomous Security Agent initialised")
             logger.info(f"Repository: {repo_path}")
             logger.info(f"Output: {out_dir}")
-            logger.info(f"LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}")
+            logger.info(
+                f"LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}"
+            )
 
             # Also print to console so user can see
-            print(f"\n🤖 Using LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}")
+            print(
+                f"\n🤖 Using LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}"
+            )
             if self.llm_config.primary_model.cost_per_1k_tokens > 0:
-                print(f"💰 Cost: ${self.llm_config.primary_model.cost_per_1k_tokens:.4f} per 1K tokens")
+                print(
+                    f"💰 Cost: ${self.llm_config.primary_model.cost_per_1k_tokens:.4f} per 1K tokens"
+                )
             else:
-                print(f"💰 Cost: FREE (self-hosted model)")
+                print("💰 Cost: FREE (self-hosted model)")
 
             # Warn about Ollama model limitations for exploit generation
             if "ollama" in self.llm_config.primary_model.provider.lower():
                 print()
                 print("IMPORTANT: You are using an Ollama model.")
-                print("   • Vulnerability analysis and patching: Works well with Ollama models")
-                print("   • Exploit generation: Requires frontier models (Anthropic Claude / OpenAI GPT-4)")
-                print("   • Ollama models may generate invalid/non-compilable exploit code")
+                print(
+                    "   • Vulnerability analysis and patching: Works well with Ollama models"
+                )
+                print(
+                    "   • Exploit generation: Requires frontier models (Anthropic Claude / OpenAI GPT-4)"
+                )
+                print(
+                    "   • Ollama models may generate invalid/non-compilable exploit code"
+                )
                 print()
                 print("   For production-quality exploits, use:")
                 print("     export ANTHROPIC_API_KEY=your_key  (recommended)")
@@ -378,26 +429,34 @@ class AutonomousSecurityAgentV2:
             logger.info(f"Output: {out_dir}")
 
             if availability.copilot_cli:
-                print("\n🤖 No external LLM configured — GitHub Copilot CLI will handle analysis")
+                print(
+                    "\n🤖 No external LLM configured — GitHub Copilot CLI will handle analysis"
+                )
             else:
-                print("\n⚠️  No LLM available — producing structured findings for manual review")
+                print(
+                    "\n⚠️  No LLM available — producing structured findings for manual review"
+                )
             print()
 
     def _load_attack_path(self, ref: str) -> Optional[Dict[str, Any]]:
         """Load attack path from a ref like 'attack-paths.json#PATH-001'."""
-        if not ref or '#' not in ref:
+        if not ref or "#" not in ref:
             return None
         try:
-            file_name, path_id = ref.split('#', 1)
+            file_name, path_id = ref.split("#", 1)
             # Search in validation directory — check multiple likely locations
             candidates = [
-                self.out_dir.parent / "validation" / file_name,    # Normal pipeline layout
-                self.out_dir / file_name,                           # Same directory as findings
-                self.out_dir.parent / file_name,                    # One level up
+                self.out_dir.parent
+                / "validation"
+                / file_name,  # Normal pipeline layout
+                self.out_dir / file_name,  # Same directory as findings
+                self.out_dir.parent / file_name,  # One level up
             ]
             for search_path in candidates:
                 if search_path.exists():
-                    with open(search_path, 'r', encoding='utf-8', errors='replace') as f:
+                    with open(
+                        search_path, "r", encoding="utf-8", errors="replace"
+                    ) as f:
                         paths = json.load(f)
                     if isinstance(paths, list):
                         return next((p for p in paths if p.get("id") == path_id), None)
@@ -454,7 +513,7 @@ Code:
             validation_prompt += f"**INTERMEDIATE STEPS ({len(vuln.dataflow_steps)} transformations):**\n\n"
 
             for i, step in enumerate(vuln.dataflow_steps, 1):
-                marker = "🛡️ SANITIZER" if step['is_sanitizer'] else "⚙️ TRANSFORMATION"
+                marker = "🛡️ SANITIZER" if step["is_sanitizer"] else "⚙️ TRANSFORMATION"
                 validation_prompt += f"""{marker} #{i}: {step['label']}
 Location: {step['file']}:{step['line']}
 
@@ -545,25 +604,19 @@ If it IS exploitable, provide the exact attack path and payload concept.
             "source_type": "string - describe what type of source this is (user_input/config/hardcoded/etc)",
             "source_attacker_controlled": "boolean - can attacker control this source?",
             "source_reasoning": "string - explain why source is or isn't attacker-controlled",
-
             "sanitizers_found": f"integer - number of sanitizers ({len(vuln.sanitizers_found)})",
             "sanitizers_effective": "boolean - do sanitizers prevent exploitation?",
             "sanitizer_details": "list of dicts with keys: name, purpose, bypass_possible, bypass_method",
-
             "path_reachable": "boolean - can this code path be reached by attacker?",
             "reachability_barriers": "list of strings - what blocks reaching this path?",
-
             "is_exploitable": "boolean - FINAL VERDICT: is this truly exploitable?",
             "exploitability_confidence": "float (0.0-1.0) - how confident in this assessment?",
             "exploitability_reasoning": "string - detailed explanation of verdict",
-
             "attack_complexity": "string - low/medium/high - difficulty of exploitation",
             "attack_prerequisites": "list of strings - what attacker needs to succeed",
             "attack_payload_concept": "string - describe what payload would work, or empty if not exploitable",
-
             "impact_if_exploited": "string - what attacker can achieve",
             "cvss_estimate": "float (0.0-10.0) - severity score",
-
             "false_positive": "boolean - is this a false positive?",
             "false_positive_reason": "string - why it's false positive, or empty",
         }
@@ -592,7 +645,7 @@ Do NOT:
             validation, _response = self.llm.generate_structured(
                 prompt=validation_prompt,
                 schema=validation_schema,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
             )
 
             if validation is None:
@@ -600,31 +653,43 @@ Do NOT:
                 return {}
 
             logger.info("✓ Dataflow validation complete:")
-            logger.info(f"  Source attacker-controlled: {validation.get('source_attacker_controlled')}")
-            logger.info(f"  Sanitizers effective: {validation.get('sanitizers_effective')}")
+            logger.info(
+                f"  Source attacker-controlled: {validation.get('source_attacker_controlled')}"
+            )
+            logger.info(
+                f"  Sanitizers effective: {validation.get('sanitizers_effective')}"
+            )
             logger.info(f"  Path reachable: {validation.get('path_reachable')}")
             logger.info(f"  Is exploitable: {validation.get('is_exploitable')}")
-            logger.info(f"  Confidence: {validation.get('exploitability_confidence', 0):.2f}")
+            logger.info(
+                f"  Confidence: {validation.get('exploitability_confidence', 0):.2f}"
+            )
             logger.info(f"  Attack complexity: {validation.get('attack_complexity')}")
             logger.info(f"  False positive: {validation.get('false_positive')}")
 
-            if validation.get('sanitizer_details'):
-                logger.info(f"\n  Sanitizer Analysis:")
-                for san_detail in validation.get('sanitizer_details', []):
+            if validation.get("sanitizer_details"):
+                logger.info("\n  Sanitizer Analysis:")
+                for san_detail in validation.get("sanitizer_details", []):
                     logger.info(f"    - {san_detail.get('name')}")
                     logger.info(f"      Purpose: {san_detail.get('purpose')}")
-                    logger.info(f"      Bypassable: {san_detail.get('bypass_possible')}")
-                    if san_detail.get('bypass_method'):
-                        logger.info(f"      Bypass: {san_detail.get('bypass_method')[:100]}")
+                    logger.info(
+                        f"      Bypassable: {san_detail.get('bypass_possible')}"
+                    )
+                    if san_detail.get("bypass_method"):
+                        logger.info(
+                            f"      Bypass: {san_detail.get('bypass_method')[:100]}"
+                        )
 
-            if validation.get('attack_payload_concept'):
-                logger.info(f"\n  Attack Payload Concept:")
+            if validation.get("attack_payload_concept"):
+                logger.info("\n  Attack Payload Concept:")
                 logger.info(f"    {validation.get('attack_payload_concept')[:200]}")
 
             # Save validation details
-            validation_file = self.out_dir / "validation" / f"{vuln.finding_id}_validation.json"
+            validation_file = (
+                self.out_dir / "validation" / f"{vuln.finding_id}_validation.json"
+            )
             validation_file.parent.mkdir(exist_ok=True, parents=True)
-            with open(validation_file, 'w') as f:
+            with open(validation_file, "w", encoding="utf-8") as f:
                 json.dump(validation, f, indent=2)
 
             return validation
@@ -638,14 +703,20 @@ Do NOT:
 
         if is_prep:
             # Condensed logging for prep-only mode
-            logger.info(f"Prepping: {vuln.rule_id} at {vuln.file_path}:{vuln.start_line}")
+            logger.info(
+                f"Prepping: {vuln.rule_id} at {vuln.file_path}:{vuln.start_line}"
+            )
         else:
             logger.info("=" * 70)
             logger.info(f"Analysing vulnerability: {vuln.rule_id}")
             logger.info(f"  File: {vuln.file_path}:{vuln.start_line}")
             logger.info(f"  Severity: {vuln.level}")
             logger.info(f"  Has dataflow: {'Yes' if vuln.has_dataflow else 'No'}")
-            logger.info(f"  Message: {vuln.message[:100]}..." if len(vuln.message) > 100 else f"  Message: {vuln.message}")
+            logger.info(
+                f"  Message: {vuln.message[:100]}..."
+                if len(vuln.message) > 100
+                else f"  Message: {vuln.message}"
+            )
 
         # Read the actual vulnerable code
         if not vuln.read_vulnerable_code():
@@ -659,15 +730,21 @@ Do NOT:
         # Extract dataflow path if available
         if vuln.has_dataflow:
             if vuln.extract_dataflow():
-                logger.info(f"✓ Dataflow path: {vuln.dataflow_path.get('total_steps', 0)} total steps")
+                logger.info(
+                    f"✓ Dataflow path: {vuln.dataflow_path.get('total_steps', 0)} total steps"
+                )
                 if vuln.sanitizers_found:
-                    logger.info(f"  ⚠️  Sanitizers detected: {', '.join(vuln.sanitizers_found)}")
+                    logger.info(
+                        f"  ⚠️  Sanitizers detected: {', '.join(vuln.sanitizers_found)}"
+                    )
             else:
-                logger.warning(f"⚠️  Failed to extract dataflow path")
+                logger.warning("⚠️  Failed to extract dataflow path")
 
         # Generate analysis using LLM
         from packages.llm_analysis.prompts import (
-            build_analysis_prompt, build_analysis_schema, ANALYSIS_SYSTEM_PROMPT,
+            build_analysis_prompt,
+            build_analysis_schema,
+            ANALYSIS_SYSTEM_PROMPT,
         )
 
         analysis_schema = build_analysis_schema(has_dataflow=vuln.has_dataflow)
@@ -694,13 +771,13 @@ Do NOT:
 
             # Use LLM for intelligent analysis
             analysis, _full_response = self.llm.generate_structured(
-                prompt=prompt,
-                schema=analysis_schema,
-                system_prompt=system_prompt
+                prompt=prompt, schema=analysis_schema, system_prompt=system_prompt
             )
 
             if analysis is None:
-                logger.info("No external LLM available — skipping analysis (prep-only mode)")
+                logger.info(
+                    "No external LLM available — skipping analysis (prep-only mode)"
+                )
                 return False
 
             vuln.exploitable = analysis.get("is_exploitable", False)
@@ -711,21 +788,35 @@ Do NOT:
             logger.info(f"  True Positive: {analysis.get('is_true_positive', False)}")
             logger.info(f"  Exploitable: {vuln.exploitable}")
             logger.info(f"  Exploitability Score: {vuln.exploitability_score:.2f}")
-            logger.info(f"  Severity Assessment: {analysis.get('severity_assessment', 'unknown')}")
-            logger.info(f"  CVSS Estimate: {analysis.get('cvss_score_estimate', 'N/A')}")
+            logger.info(
+                f"  Severity Assessment: {analysis.get('severity_assessment', 'unknown')}"
+            )
+            logger.info(
+                f"  CVSS Estimate: {analysis.get('cvss_score_estimate', 'N/A')}"
+            )
 
             # Log dataflow-specific analysis
-            if vuln.has_dataflow and 'source_attacker_controlled' in analysis:
-                logger.info(f"\n  Dataflow Analysis:")
-                logger.info(f"    Source attacker-controlled: {analysis.get('source_attacker_controlled', 'N/A')}")
-                logger.info(f"    Sanitizers effective: {analysis.get('sanitizers_effective', 'N/A')}")
-                if analysis.get('sanitizer_bypass_technique'):
-                    logger.info(f"    Bypass technique: {(analysis.get('sanitizer_bypass_technique') or '')[:100]}...")
-                logger.info(f"    Dataflow exploitable: {analysis.get('dataflow_exploitable', 'N/A')}")
+            if vuln.has_dataflow and "source_attacker_controlled" in analysis:
+                logger.info("\n  Dataflow Analysis:")
+                logger.info(
+                    f"    Source attacker-controlled: {analysis.get('source_attacker_controlled', 'N/A')}"
+                )
+                logger.info(
+                    f"    Sanitizers effective: {analysis.get('sanitizers_effective', 'N/A')}"
+                )
+                if analysis.get("sanitizer_bypass_technique"):
+                    logger.info(
+                        f"    Bypass technique: {(analysis.get('sanitizer_bypass_technique') or '')[:100]}..."
+                    )
+                logger.info(
+                    f"    Dataflow exploitable: {analysis.get('dataflow_exploitable', 'N/A')}"
+                )
 
             logger.info(f"\n  Reasoning: {(analysis.get('reasoning') or '')[:150]}...")
-            if analysis.get('attack_scenario'):
-                logger.info(f"  Attack Scenario: {analysis.get('attack_scenario')[:150]}...")
+            if analysis.get("attack_scenario"):
+                logger.info(
+                    f"  Attack Scenario: {analysis.get('attack_scenario')[:150]}..."
+                )
 
             # Deep dataflow validation for high-confidence findings
             if vuln.has_dataflow and vuln.exploitable:
@@ -737,45 +828,59 @@ Do NOT:
 
                 if validation:
                     # Update exploitability based on validation
-                    if validation.get('false_positive'):
-                        logger.info(f"⚠️  Validation marked as FALSE POSITIVE:")
-                        logger.info(f"    Reason: {validation.get('false_positive_reason')}")
+                    if validation.get("false_positive"):
+                        logger.info("⚠️  Validation marked as FALSE POSITIVE:")
+                        logger.info(
+                            f"    Reason: {validation.get('false_positive_reason')}"
+                        )
                         vuln.exploitable = False
                         vuln.exploitability_score = 0.0
-                    elif not validation.get('is_exploitable'):
-                        logger.info(f"⚠️  Validation determined NOT EXPLOITABLE:")
-                        logger.info(f"    Reason: {(validation.get('exploitability_reasoning') or '')[:150]}")
+                    elif not validation.get("is_exploitable"):
+                        logger.info("⚠️  Validation determined NOT EXPLOITABLE:")
+                        logger.info(
+                            f"    Reason: {(validation.get('exploitability_reasoning') or '')[:150]}"
+                        )
                         vuln.exploitable = False
-                        vuln.exploitability_score = validation.get('exploitability_confidence', 0.0) * 0.5
+                        vuln.exploitability_score = (
+                            validation.get("exploitability_confidence", 0.0) * 0.5
+                        )
                     else:
                         # Validation confirms exploitability
-                        logger.info(f"✓ Validation confirms EXPLOITABLE")
+                        logger.info("✓ Validation confirms EXPLOITABLE")
                         # Use validation confidence to refine score
                         vuln.exploitability_score = max(
                             vuln.exploitability_score,
-                            validation.get('exploitability_confidence', vuln.exploitability_score)
+                            validation.get(
+                                "exploitability_confidence", vuln.exploitability_score
+                            ),
                         )
 
                     # Store validation in analysis
-                    analysis['dataflow_validation'] = validation
+                    analysis["dataflow_validation"] = validation
 
             # Save detailed analysis
             analysis_file = self.out_dir / "analysis" / f"{vuln.finding_id}.json"
             analysis_file.parent.mkdir(exist_ok=True, parents=True)
-            with open(analysis_file, 'w') as f:
-                json.dump({
-                    "finding_id": vuln.finding_id,
-                    "rule_id": vuln.rule_id,
-                    "file": vuln.file_path,
-                    "analysis": analysis,
-                }, f, indent=2)
+            with open(analysis_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "finding_id": vuln.finding_id,
+                        "rule_id": vuln.rule_id,
+                        "file": vuln.file_path,
+                        "analysis": analysis,
+                    },
+                    f,
+                    indent=2,
+                )
 
             return True
 
         except Exception as e:
             logger.error(f"✗ LLM analysis failed: {e}")
             if _is_auth_error(e):
-                print("⚠️  LLM authentication failed — check your API key. Falling back to heuristic analysis.")
+                print(
+                    "⚠️  LLM authentication failed — check your API key. Falling back to heuristic analysis."
+                )
             else:
                 logger.warning("  Using fallback heuristic analysis")
             # Fallback to marking as potentially exploitable
@@ -786,7 +891,7 @@ Do NOT:
     def generate_exploit(self, vuln: VulnerabilityContext) -> bool:
 
         if not vuln.exploitable:
-            logger.debug(f"⊘ Skipping exploit generation (not exploitable)")
+            logger.debug("⊘ Skipping exploit generation (not exploitable)")
             return False
 
         logger.info("─" * 70)
@@ -794,7 +899,8 @@ Do NOT:
         logger.info(f"   Target: {vuln.file_path}:{vuln.start_line}")
 
         from packages.llm_analysis.prompts import (
-            build_exploit_prompt, EXPLOIT_SYSTEM_PROMPT,
+            build_exploit_prompt,
+            EXPLOIT_SYSTEM_PROMPT,
         )
 
         prompt = build_exploit_prompt(
@@ -805,7 +911,7 @@ Do NOT:
             analysis=vuln.analysis,
             code=vuln.full_code,
             surrounding_context=vuln.surrounding_context,
-            feasibility=vuln.feasibility if hasattr(vuln, 'feasibility') else None,
+            feasibility=vuln.feasibility if hasattr(vuln, "feasibility") else None,
         )
 
         system_prompt = EXPLOIT_SYSTEM_PROMPT
@@ -816,7 +922,7 @@ Do NOT:
             response = self.llm.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                temperature=0.8  # Higher creativity for exploit generation. YMMV
+                temperature=0.8,  # Higher creativity for exploit generation. YMMV
             )
 
             if response is None:
@@ -830,7 +936,9 @@ Do NOT:
                 vuln.exploit_code = exploit_code
 
                 # Save exploit
-                exploit_file = self.out_dir / "exploits" / f"{vuln.finding_id}_exploit.cpp"
+                exploit_file = (
+                    self.out_dir / "exploits" / f"{vuln.finding_id}_exploit.cpp"
+                )
                 exploit_file.parent.mkdir(exist_ok=True, parents=True)
                 exploit_file.write_text(exploit_code)
 
@@ -858,13 +966,14 @@ Do NOT:
             logger.error(f"   ✗ File not found: {file_path}")
             return False
 
-        logger.info(f"   ✓ Reading full file for context...")
+        logger.info("   ✓ Reading full file for context...")
 
-        with open(file_path) as f:
+        with open(file_path, encoding="utf-8", errors="replace") as f:
             full_file_content = f.read()
 
         from packages.llm_analysis.prompts import (
-            build_patch_prompt, PATCH_SYSTEM_PROMPT,
+            build_patch_prompt,
+            PATCH_SYSTEM_PROMPT,
         )
 
         # Load attack path if available
@@ -893,7 +1002,7 @@ Do NOT:
             response = self.llm.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                temperature=0.3  # Lower temperature for safer patches
+                temperature=0.3,  # Lower temperature for safer patches
             )
 
             if response is None:
@@ -972,17 +1081,23 @@ Do NOT:
         Skips ruled_out findings and unlikely verdict findings.
         Converts validation format to VulnerabilityContext expected format.
         """
-        with open(findings_path, 'r') as f:
+        with open(findings_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         converted = convert_validated_to_agent_format(data)
 
-        logger.info(f"Loaded {len(converted)} findings from {Path(findings_path).name} "
-                    f"(skipped {len(data.get('findings', [])) - len(converted)} ruled out/unlikely)")
+        logger.info(
+            f"Loaded {len(converted)} findings from {Path(findings_path).name} "
+            f"(skipped {len(data.get('findings', [])) - len(converted)} ruled out/unlikely)"
+        )
         return converted
 
-    def process_findings(self, sarif_paths: List[str] = None, findings_path: str = None,
-                         max_findings: int = 10) -> Dict[str, Any]:
+    def process_findings(
+        self,
+        sarif_paths: List[str] = None,
+        findings_path: str = None,
+        max_findings: int = 10,
+    ) -> Dict[str, Any]:
         """Process findings with full LLM-powered autonomous workflow."""
         start_time = time.time()
 
@@ -996,16 +1111,20 @@ Do NOT:
             unique_findings = self._load_validated_findings(findings_path)
         else:
             all_findings = []
-            for sarif_path in (sarif_paths or []):
+            for sarif_path in sarif_paths or []:
                 findings = parse_sarif_findings(Path(sarif_path))
-                logger.info(f"Loaded {len(findings)} findings from {Path(sarif_path).name}")
+                logger.info(
+                    f"Loaded {len(findings)} findings from {Path(sarif_path).name}"
+                )
                 all_findings.extend(findings)
 
             unique_findings = deduplicate_findings(all_findings)
 
         # Prioritize findings with dataflow paths (for better validation coverage)
-        findings_with_dataflow = [f for f in unique_findings if f.get('has_dataflow')]
-        findings_without_dataflow = [f for f in unique_findings if not f.get('has_dataflow')]
+        findings_with_dataflow = [f for f in unique_findings if f.get("has_dataflow")]
+        findings_without_dataflow = [
+            f for f in unique_findings if not f.get("has_dataflow")
+        ]
 
         # Put dataflow findings first, then others
         prioritized_findings = findings_with_dataflow + findings_without_dataflow
@@ -1030,10 +1149,15 @@ Do NOT:
 
         is_prep = isinstance(self.llm, CopilotCLIProvider)
 
-        with HackerProgress(total=len(unique_findings), operation="Analyzing vulnerabilities",
-                            disabled=is_prep) as progress:
+        with HackerProgress(
+            total=len(unique_findings),
+            operation="Analyzing vulnerabilities",
+            disabled=is_prep,
+        ) as progress:
             for idx, finding in enumerate(unique_findings, 1):
-                progress.update(current=idx, message=f"{finding.get('rule_id', 'unknown')}")
+                progress.update(
+                    current=idx, message=f"{finding.get('rule_id', 'unknown')}"
+                )
 
                 if not isinstance(self.llm, CopilotCLIProvider):
                     logger.info("")
@@ -1048,10 +1172,14 @@ Do NOT:
                     analyzed += 1
 
                     # Track dataflow validation
-                    if vuln.has_dataflow and vuln.analysis and 'dataflow_validation' in vuln.analysis:
+                    if (
+                        vuln.has_dataflow
+                        and vuln.analysis
+                        and "dataflow_validation" in vuln.analysis
+                    ):
                         dataflow_validated += 1
-                        validation = vuln.analysis['dataflow_validation']
-                        if validation.get('false_positive'):
+                        validation = vuln.analysis["dataflow_validation"]
+                        if validation.get("false_positive"):
                             false_positives_found += 1
 
                     if vuln.exploitable:
@@ -1065,7 +1193,7 @@ Do NOT:
                         if self.generate_patch(vuln):
                             patches_generated += 1
                     else:
-                        logger.debug(f"⊘ Skipping patch generation (not exploitable)")
+                        logger.debug("⊘ Skipping patch generation (not exploitable)")
 
                 # Always include finding in results (with or without LLM analysis)
                 results.append(vuln.to_dict())
@@ -1075,11 +1203,13 @@ Do NOT:
                 logger.info(f"Progress: {idx}/{len(unique_findings)} prepped")
             else:
                 logger.info("")
-                logger.info(f"Progress: {idx}/{len(unique_findings)} analyzed, "
-                           f"{exploitable} exploitable, "
-                           f"{exploits_generated} exploits, "
-                           f"{patches_generated} patches, "
-                           f"{dataflow_validated} dataflow validated")
+                logger.info(
+                    f"Progress: {idx}/{len(unique_findings)} analyzed, "
+                    f"{exploitable} exploitable, "
+                    f"{exploits_generated} exploits, "
+                    f"{patches_generated} patches, "
+                    f"{dataflow_validated} dataflow validated"
+                )
 
         execution_time = time.time() - start_time
 
@@ -1107,7 +1237,7 @@ Do NOT:
 
         # Save report
         report_file = self.out_dir / "autonomous_analysis_report.json"
-        with open(report_file, 'w') as f:
+        with open(report_file, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
 
         logger.info("")
@@ -1116,24 +1246,26 @@ Do NOT:
         logger.info("=" * 70)
 
         if is_prep_only:
-            logger.info(f"Prep complete: {len(unique_findings)} findings prepared for Phase 4 orchestration")
+            logger.info(
+                f"Prep complete: {len(unique_findings)} findings prepared for Phase 4 orchestration"
+            )
         else:
             logger.info(f"✓ Processed: {len(unique_findings)} findings")
             logger.info(f"✓ Analyzed: {analyzed} with LLM")
             logger.info(f"✓ Exploitable: {exploitable} vulnerabilities")
             logger.info(f"✓ Exploits generated: {exploits_generated}")
             logger.info(f"✓ Patches generated: {patches_generated}")
-            logger.info(f"")
+            logger.info("")
             if dataflow_validated > 0:
-                logger.info(f"Dataflow Validation:")
+                logger.info("Dataflow Validation:")
                 logger.info(f"   Deep validated: {dataflow_validated} dataflow paths")
                 logger.info(f"   False positives caught: {false_positives_found}")
-                logger.info(f"")
-            logger.info(f"LLM Statistics:")
+                logger.info("")
+            logger.info("LLM Statistics:")
             logger.info(f"   Total requests: {llm_stats['total_requests']}")
             logger.info(f"   Total cost: ${llm_stats['total_cost']:.4f}")
             logger.info(f"   Execution time: {execution_time:.1f}s")
-        logger.info(f"")
+        logger.info("")
         logger.info(f"Report saved: {report_file}")
         logger.info("=" * 70)
 
@@ -1173,16 +1305,22 @@ def find_validation_artifacts(workdir: Path = None) -> Optional[Path]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(
-        description="RAPTOR Autonomous Security Agent"
-    )
+    ap = argparse.ArgumentParser(description="RAPTOR Autonomous Security Agent")
     ap.add_argument("--repo", required=True, help="Repository path")
     ap.add_argument("--sarif", nargs="+", help="SARIF files")
-    ap.add_argument("--findings", help="Validated findings.json from exploitability validation pipeline")
+    ap.add_argument(
+        "--findings",
+        help="Validated findings.json from exploitability validation pipeline",
+    )
     ap.add_argument("--out", help="Output directory")
-    ap.add_argument("--max-findings", type=int, default=10, help="Max findings to process")
-    ap.add_argument("--prep-only", action="store_true",
-                    help="Skip LLM analysis; produce structured findings for external orchestration")
+    ap.add_argument(
+        "--max-findings", type=int, default=10, help="Max findings to process"
+    )
+    ap.add_argument(
+        "--prep-only",
+        action="store_true",
+        help="Skip LLM analysis; produce structured findings for external orchestration",
+    )
 
     args = ap.parse_args()
 
@@ -1209,11 +1347,15 @@ def main() -> None:
 
     # Process findings - route based on input type
     if args.findings:
-        report = agent.process_findings(findings_path=args.findings, max_findings=args.max_findings)
+        report = agent.process_findings(
+            findings_path=args.findings, max_findings=args.max_findings
+        )
     else:
-        report = agent.process_findings(sarif_paths=args.sarif, max_findings=args.max_findings)
+        report = agent.process_findings(
+            sarif_paths=args.sarif, max_findings=args.max_findings
+        )
 
-    if report.get('mode') != 'prep_only':
+    if report.get("mode") != "prep_only":
         print("\n" + "=" * 70)
         print("Autonomous Security Agent Report")
         print("=" * 70)

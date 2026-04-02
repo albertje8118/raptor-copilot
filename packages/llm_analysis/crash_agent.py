@@ -6,13 +6,11 @@ LLM-powered analysis of crashes from fuzzing.
 """
 
 import json
-import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict
 
 from core.logging import get_logger
 from packages.binary_analysis import CrashContext
-from packages.fuzzing import Crash
 from .llm.client import LLMClient, _is_auth_error
 from .llm.config import LLMConfig, detect_llm_availability
 from .llm.providers import CopilotCLIProvider
@@ -38,20 +36,30 @@ class CrashAnalysisAgent:
             logger.info("RAPTOR Crash Analysis Agent initialized")
             logger.info(f"Binary: {binary_path}")
             logger.info(f"Output: {out_dir}")
-            logger.info(f"LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}")
+            logger.info(
+                f"LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}"
+            )
 
-            print(f"\n Using LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}")
+            print(
+                f"\n Using LLM: {self.llm_config.primary_model.provider}/{self.llm_config.primary_model.model_name}"
+            )
             if self.llm_config.primary_model.cost_per_1k_tokens > 0:
-                print(f"Cost: ${self.llm_config.primary_model.cost_per_1k_tokens:.4f} per 1K tokens")
+                print(
+                    f"Cost: ${self.llm_config.primary_model.cost_per_1k_tokens:.4f} per 1K tokens"
+                )
             else:
-                print(f"Cost: FREE (self-hosted model)")
+                print("Cost: FREE (self-hosted model)")
 
             if "ollama" in self.llm_config.primary_model.provider.lower():
                 print()
                 print("IMPORTANT: You are using an Ollama model.")
                 print("   • Crash analysis and triage: Works well with Ollama models")
-                print("   • Exploit generation: Requires frontier models (Anthropic Claude / OpenAI GPT-4)")
-                print("   • Ollama models may generate invalid/non-compilable exploit code")
+                print(
+                    "   • Exploit generation: Requires frontier models (Anthropic Claude / OpenAI GPT-4)"
+                )
+                print(
+                    "   • Ollama models may generate invalid/non-compilable exploit code"
+                )
                 print()
                 print("   For production-quality exploits, use:")
                 print("     export ANTHROPIC_API_KEY=your_key  (recommended)")
@@ -66,9 +74,13 @@ class CrashAnalysisAgent:
             logger.info(f"Output: {out_dir}")
 
             if availability.copilot_cli:
-                print("\n🤖 No external LLM configured — GitHub Copilot CLI will handle analysis")
+                print(
+                    "\n🤖 No external LLM configured — GitHub Copilot CLI will handle analysis"
+                )
             else:
-                print("\n⚠️  No LLM available — producing structured findings for manual review")
+                print(
+                    "\n⚠️  No LLM available — producing structured findings for manual review"
+                )
             print()
 
     def analyse_crash(self, crash_context: CrashContext) -> bool:
@@ -180,7 +192,7 @@ If crash details are incomplete, make reasonable assumptions based on the signal
 
         analysis_schema = {
             "is_true_positive": "boolean",
-            "is_exploitable": "boolean", 
+            "is_exploitable": "boolean",
             "exploitability_score": "float",
             "crash_type": "string",
             "severity_assessment": "string",
@@ -216,7 +228,9 @@ Be honest about exploitability - not every crash is exploitable."""
                 return False
 
             # Update crash context
-            crash_context.exploitability = "exploitable" if analysis.get("is_exploitable") else "not_exploitable"
+            crash_context.exploitability = (
+                "exploitable" if analysis.get("is_exploitable") else "not_exploitable"
+            )
             crash_context.crash_type = analysis.get("crash_type", "unknown")
             crash_context.cvss_estimate = analysis.get("cvss_estimate", 0.0)
             crash_context.analysis = analysis
@@ -227,26 +241,33 @@ Be honest about exploitability - not every crash is exploitable."""
             logger.info(f"  Crash Type: {analysis.get('crash_type', 'unknown')}")
             logger.info(f"  Severity: {analysis.get('severity_assessment', 'unknown')}")
             logger.info(f"  CVSS: {analysis.get('cvss_estimate', 0.0)}")
-            if analysis.get('attack_scenario'):
+            if analysis.get("attack_scenario"):
                 logger.info(f"  Attack: {analysis.get('attack_scenario')[:150]}...")
-            
+
             # Log some reasoning from the full response
             if full_response:
                 # Extract reasoning (look for common patterns in LLM responses)
                 reasoning_lines = []
-                for line in full_response.split('\n')[:10]:  # First 10 lines
+                for line in full_response.split("\n")[:10]:  # First 10 lines
                     line = line.strip()
-                    if line and not line.startswith('{') and not line.startswith('```') and len(line) > 20:
+                    if (
+                        line
+                        and not line.startswith("{")
+                        and not line.startswith("```")
+                        and len(line) > 20
+                    ):
                         reasoning_lines.append(line[:200])  # Truncate long lines
-                
+
                 if reasoning_lines:
-                    logger.info("  Reasoning: " + " | ".join(reasoning_lines[:3]))  # Show first 3 reasoning lines
-            
+                    logger.info(
+                        "  Reasoning: " + " | ".join(reasoning_lines[:3])
+                    )  # Show first 3 reasoning lines
+
             # Log summary of LLM reasoning
             if full_response:
                 logger.info(f"  Full reasoning saved ({len(full_response)} chars)")
                 # Show first few lines of reasoning for context
-                reasoning_preview = full_response[:200].replace('\n', ' ').strip()
+                reasoning_preview = full_response[:200].replace("\n", " ").strip()
                 if len(full_response) > 200:
                     reasoning_preview += "..."
                 logger.debug(f"  Reasoning preview: {reasoning_preview}")
@@ -254,34 +275,42 @@ Be honest about exploitability - not every crash is exploitable."""
             # Save analysis
             analysis_file = self.out_dir / "analysis" / f"{crash_context.crash_id}.json"
             analysis_file.parent.mkdir(exist_ok=True)
-            
+
             # Include input file information
             input_info = {
                 "input_file_path": str(crash_context.input_file),
                 "input_file_size": crash_context.input_file.stat().st_size,
             }
-            
+
             # Include input content (truncated if too large)
             try:
-                with open(crash_context.input_file, 'rb') as f:
+                with open(crash_context.input_file, "rb") as f:
                     input_data = f.read()
                     input_info["input_content_hex"] = input_data.hex()
                     # Include ASCII representation for readability
-                    input_info["input_content_ascii"] = input_data.decode('ascii', errors='replace')[:500]  # Truncate long inputs
+                    input_info["input_content_ascii"] = input_data.decode(
+                        "ascii", errors="replace"
+                    )[
+                        :500
+                    ]  # Truncate long inputs
                     if len(input_data) > 500:
                         input_info["input_content_ascii"] += "... (truncated)"
             except Exception as e:
                 input_info["input_content_error"] = str(e)
-            
-            with open(analysis_file, 'w') as f:
-                json.dump({
-                    "crash_id": crash_context.crash_id,
-                    "crash_type": crash_context.crash_type,
-                    "exploitability": crash_context.exploitability,
-                    "input_info": input_info,
-                    "analysis": analysis,
-                    "full_response": full_response,  
-                }, f, indent=2)
+
+            with open(analysis_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "crash_id": crash_context.crash_id,
+                        "crash_type": crash_context.crash_type,
+                        "exploitability": crash_context.exploitability,
+                        "input_info": input_info,
+                        "analysis": analysis,
+                        "full_response": full_response,
+                    },
+                    f,
+                    indent=2,
+                )
 
             return True
 
@@ -302,14 +331,22 @@ Be honest about exploitability - not every crash is exploitable."""
         logger.info(f"   Target: {crash_context.binary_path.name}")
 
         # Warn if using Ollama model
-        if self.llm_config and self.llm_config.primary_model and "ollama" in self.llm_config.primary_model.provider.lower():
-            logger.warning("⚠️  Using Ollama model - exploit code may not compile correctly")
-            logger.warning("   For production exploits, use Anthropic Claude or OpenAI GPT-4")
+        if (
+            self.llm_config
+            and self.llm_config.primary_model
+            and "ollama" in self.llm_config.primary_model.provider.lower()
+        ):
+            logger.warning(
+                "⚠️  Using Ollama model - exploit code may not compile correctly"
+            )
+            logger.warning(
+                "   For production exploits, use Anthropic Claude or OpenAI GPT-4"
+            )
 
         # Read the input file content for the prompt
         input_content = ""
         try:
-            with open(crash_context.input_file, 'rb') as f:
+            with open(crash_context.input_file, "rb") as f:
                 input_bytes = f.read()
                 input_content = f"Hex: {input_bytes.hex()}\nASCII: {input_bytes.decode('ascii', errors='replace')}"
         except Exception as e:
@@ -359,10 +396,7 @@ Example response format:
   "reasoning": "This exploit works by..."
 }}"""
 
-        exploit_schema = {
-            "code": "string",
-            "reasoning": "string"
-        }
+        exploit_schema = {"code": "string", "reasoning": "string"}
 
         system_prompt = """You are an expert binary exploitation specialist.
 Generate structured JSON output with exploit code and reasoning.
@@ -394,18 +428,24 @@ The "reasoning" field can contain explanations and analysis."""
             # Extract code from structured response
             logger.debug(f"Exploit data type: {type(exploit_data)}")
             logger.debug(f"Exploit data content: {exploit_data}")
-            
+
             # Handle case where exploit_data might be a list (fallback extraction)
             if isinstance(exploit_data, list):
-                logger.warning(f"Exploit data is a list with {len(exploit_data)} elements")
+                logger.warning(
+                    f"Exploit data is a list with {len(exploit_data)} elements"
+                )
                 if not exploit_data:
-                    logger.error("Exploit data is an empty list - LLM returned invalid response")
+                    logger.error(
+                        "Exploit data is an empty list - LLM returned invalid response"
+                    )
                     return False
                 elif isinstance(exploit_data[0], dict):
                     logger.info("Extracting first dict element from list")
                     exploit_data = exploit_data[0]
                 else:
-                    logger.error(f"First list element is {type(exploit_data[0])}, not dict. Content: {exploit_data[0]}")
+                    logger.error(
+                        f"First list element is {type(exploit_data[0])}, not dict. Content: {exploit_data[0]}"
+                    )
                     # Try to parse as JSON string if it's a string
                     if isinstance(exploit_data[0], str):
                         try:
@@ -416,10 +456,12 @@ The "reasoning" field can contain explanations and analysis."""
                             return False
                     else:
                         return False
-            
+
             # Ensure exploit_data is a dict at this point
             if not isinstance(exploit_data, dict):
-                logger.error(f"Exploit data is still not a dict after processing: {type(exploit_data)}")
+                logger.error(
+                    f"Exploit data is still not a dict after processing: {type(exploit_data)}"
+                )
                 return False
 
             exploit_code = exploit_data.get("code", "").strip()
@@ -434,12 +476,18 @@ The "reasoning" field can contain explanations and analysis."""
                 crash_context.exploit_code = exploit_code
 
                 # Save exploit with full response for debugging
-                exploit_file = self.out_dir / "exploits" / f"{crash_context.crash_id}_exploit.cpp"
+                exploit_file = (
+                    self.out_dir / "exploits" / f"{crash_context.crash_id}_exploit.cpp"
+                )
                 exploit_file.parent.mkdir(exist_ok=True)
                 exploit_file.write_text(exploit_code)
 
                 # Save full response for analysis
-                response_file = self.out_dir / "exploits" / f"{crash_context.crash_id}_exploit_response.txt"
+                response_file = (
+                    self.out_dir
+                    / "exploits"
+                    / f"{crash_context.crash_id}_exploit_response.txt"
+                )
                 response_content = f"""REASONING:
 {reasoning}
 

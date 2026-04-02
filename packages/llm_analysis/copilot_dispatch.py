@@ -85,6 +85,7 @@ def invoke_copilot_simple(
             text=True,
             timeout=timeout,
             cwd=repo_path,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return DispatchResult(result={"error": f"timeout after {timeout}s"})
@@ -96,9 +97,13 @@ def invoke_copilot_simple(
         return DispatchResult(result=result, model=selected_model)
 
     if schema:
-        parsed = parse_copilot_result(proc.stdout, proc.stderr, "unknown", default_model=selected_model)
+        parsed = parse_copilot_result(
+            proc.stdout, proc.stderr, "unknown", default_model=selected_model
+        )
     else:
-        parsed = parse_copilot_freeform(proc.stdout, proc.stderr, default_model=selected_model)
+        parsed = parse_copilot_freeform(
+            proc.stdout, proc.stderr, default_model=selected_model
+        )
 
     cost = parsed.pop("cost_usd", 0)
     tokens = parsed.pop("_tokens", 0)
@@ -126,7 +131,9 @@ def write_debug(
         debug_dir = out_dir / "debug"
         debug_dir.mkdir(parents=True, exist_ok=True)
         debug_file = debug_dir / f"copilot_{finding_id}.txt"
-        debug_file.write_text(f"STDOUT:\n{stdout or '(empty)'}\n\nSTDERR:\n{stderr or '(empty)'}")
+        debug_file.write_text(
+            f"STDOUT:\n{stdout or '(empty)'}\n\nSTDERR:\n{stderr or '(empty)'}"
+        )
         result["copilot_debug_file"] = f"debug/copilot_{finding_id}.txt"
     except OSError:
         pass
@@ -182,11 +189,15 @@ def build_finding_prompt(
 - Sanitizers found: {len(sanitizers)}
 """
         if sanitizers:
-            prompt += "- Sanitizer locations: " + ", ".join(
-                f"{s.get('file', '?')}:{s.get('line', '?')}"
-                for s in sanitizers
-                if isinstance(s, dict)
-            ) + "\n"
+            prompt += (
+                "- Sanitizer locations: "
+                + ", ".join(
+                    f"{s.get('file', '?')}:{s.get('line', '?')}"
+                    for s in sanitizers
+                    if isinstance(s, dict)
+                )
+                + "\n"
+            )
 
     feasibility = finding.get("feasibility")
     if feasibility:
@@ -231,7 +242,8 @@ functions called in the vulnerable code.
 
     if not no_patches:
         prompt += f"""
-{"3" if not no_exploits else "2"}. **Patch**: Create a secure fix that preserves existing functionality.
+{"3" if not no_exploits else "2"}. **Patch**: Create a secure fix
+   that preserves existing functionality.
    Inspect the full file for context before writing the patch.
 """
 
@@ -243,7 +255,9 @@ If you cannot complete the task, still return valid JSON with an "error" field.
     return prompt
 
 
-def _extract_envelope_metadata(envelope: dict, into: dict, default_model: Optional[str] = None) -> None:
+def _extract_envelope_metadata(
+    envelope: dict, into: dict, default_model: Optional[str] = None
+) -> None:
     """Extract provider metadata when CLI output includes an envelope."""
     if envelope.get("total_cost_usd"):
         into["cost_usd"] = envelope["total_cost_usd"]
@@ -298,7 +312,9 @@ def parse_copilot_result(
 
     result = _parse_json_candidate(content)
     if result:
-        if "structured_output" in result and isinstance(result["structured_output"], dict):
+        if "structured_output" in result and isinstance(
+            result["structured_output"], dict
+        ):
             inner = result["structured_output"]
             inner.setdefault("finding_id", finding_id)
             _extract_envelope_metadata(result, inner, default_model=default_model)
@@ -311,7 +327,11 @@ def parse_copilot_result(
         parts = content.split("```")
         for part in parts[1::2]:
             lines = part.strip().split("\n", 1)
-            candidate = lines[1].strip() if len(lines) > 1 and not lines[0].startswith("{") else part.strip()
+            candidate = (
+                lines[1].strip()
+                if len(lines) > 1 and not lines[0].startswith("{")
+                else part.strip()
+            )
             result = _parse_json_candidate(candidate)
             if result:
                 result.setdefault("finding_id", finding_id)
