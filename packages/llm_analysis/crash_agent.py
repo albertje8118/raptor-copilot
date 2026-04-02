@@ -15,7 +15,7 @@ from packages.binary_analysis import CrashContext
 from packages.fuzzing import Crash
 from .llm.client import LLMClient, _is_auth_error
 from .llm.config import LLMConfig, detect_llm_availability
-from .llm.providers import ClaudeCodeProvider
+from .llm.providers import CopilotCLIProvider
 
 logger = get_logger()
 
@@ -59,14 +59,14 @@ class CrashAnalysisAgent:
             print()
         else:
             self.llm_config = None
-            self.llm = ClaudeCodeProvider()
+            self.llm = CopilotCLIProvider()
 
             logger.info("RAPTOR Crash Analysis Agent initialized (prep-only mode)")
             logger.info(f"Binary: {binary_path}")
             logger.info(f"Output: {out_dir}")
 
-            if availability.claude_code:
-                print("\n🤖 No external LLM configured — Claude Code will handle analysis")
+            if availability.copilot_cli:
+                print("\n🤖 No external LLM configured — GitHub Copilot CLI will handle analysis")
             else:
                 print("\n⚠️  No LLM available — producing structured findings for manual review")
             print()

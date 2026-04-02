@@ -180,9 +180,9 @@ Examples:
 
     # Orchestration options
     parser.add_argument("--max-parallel", type=int, default=3,
-                       help="Maximum parallel Claude Code agents for Phase 4 orchestration (default: 3)")
+                       help="Maximum parallel GitHub Copilot CLI agents for Phase 4 orchestration (default: 3)")
     parser.add_argument("--no-orchestration", action="store_true",
-                       help="Skip Phase 4 orchestration (use Phase 3 sequential analysis even when CC is available)")
+                       help="Skip Phase 4 orchestration (use Phase 3 sequential analysis even when GitHub Copilot CLI is available)")
 
     args = parser.parse_args()
 
@@ -520,7 +520,7 @@ Examples:
         print("    1. Set ANTHROPIC_API_KEY environment variable, OR")
         print("    2. Set OPENAI_API_KEY / GEMINI_API_KEY / MISTRAL_API_KEY, OR")
         print("    3. Run Ollama locally (https://ollama.ai), OR")
-        print("    4. Run inside Claude Code (claude)")
+        print("    4. Install GitHub Copilot CLI (`copilot`)")
         logger.warning("Phase 3 skipped - No LLM provider configured")
     else:
         autonomous_out = out_dir / "autonomous"
@@ -550,7 +550,7 @@ Examples:
             ]
 
         # If Phase 4 will orchestrate, tell agent to prep only (skip LLM calls)
-        if (llm_env.claude_code or llm_env.external_llm) and not args.no_orchestration:
+        if (llm_env.copilot_cli or llm_env.external_llm) and not args.no_orchestration:
             analysis_cmd.append("--prep-only")
 
         rc, stdout, stderr = run_command_streaming(analysis_cmd, "Analysing vulnerabilities autonomously")
@@ -583,7 +583,7 @@ Examples:
     # PHASE 4: AGENTIC ORCHESTRATION
     # ========================================================================
     orchestration_result = None
-    if (llm_env.claude_code or llm_env.external_llm) and not args.no_orchestration:
+    if (llm_env.copilot_cli or llm_env.external_llm) and not args.no_orchestration:
         print("\n" + "=" * 70)
         print("PHASE 4: AGENTIC ORCHESTRATION")
         print("=" * 70)
@@ -609,7 +609,7 @@ Examples:
             print("\n  No analysis report from Phase 3 — skipping orchestration")
     elif not llm_env.llm_available:
         print("\n  No LLM available. Findings prepared for manual review.")
-        print("  For automated analysis, set an API key or install Claude Code.")
+        print("  For automated analysis, set an API key or install GitHub Copilot CLI.")
 
     # ========================================================================
     # FINAL REPORT
@@ -742,7 +742,7 @@ Examples:
         print(f"   ✓ Created {patches_count} patch{'es' if patches_count != 1 else ''}")
     if orchestration_result:
         orch = orchestration_result.get("orchestration", {})
-        print(f"   ✓ Orchestrated via Claude Code ({orch.get('findings_analysed', 0)} findings)")
+        print(f"   ✓ Orchestrated via GitHub Copilot CLI ({orch.get('findings_analysed', 0)} findings)")
     print("\nReview the outputs and apply patches as needed.")
     print("=" * 70)
 

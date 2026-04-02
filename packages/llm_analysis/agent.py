@@ -28,7 +28,7 @@ from core.progress import HackerProgress
 from core.sarif.parser import parse_sarif_findings, deduplicate_findings
 from llm.client import LLMClient, _is_auth_error
 from llm.config import LLMConfig, detect_llm_availability
-from llm.providers import ClaudeCodeProvider
+from llm.providers import CopilotCLIProvider
 
 logger = get_logger()
 
@@ -331,9 +331,9 @@ class AutonomousSecurityAgentV2:
         availability = detect_llm_availability()
 
         if prep_only:
-            # Caller explicitly requested prep-only (e.g. CC will orchestrate)
+            # Caller explicitly requested prep-only (e.g. Copilot CLI will orchestrate)
             self.llm_config = None
-            self.llm = ClaudeCodeProvider()
+            self.llm = CopilotCLIProvider()
             logger.info("RAPTOR Autonomous Security Agent initialised (prep-only mode, --prep-only)")
             logger.info(f"Repository: {repo_path}")
             logger.info(f"Output: {out_dir}")
@@ -369,16 +369,16 @@ class AutonomousSecurityAgentV2:
                 print("     export OPENAI_API_KEY=your_key")
             print()
         else:
-            # No external LLM — use ClaudeCodeProvider
+            # No external LLM — use CopilotCLIProvider
             self.llm_config = None
-            self.llm = ClaudeCodeProvider()
+            self.llm = CopilotCLIProvider()
 
             logger.info("RAPTOR Autonomous Security Agent initialised (prep-only mode)")
             logger.info(f"Repository: {repo_path}")
             logger.info(f"Output: {out_dir}")
 
-            if availability.claude_code:
-                print("\n🤖 No external LLM configured — Claude Code will handle analysis")
+            if availability.copilot_cli:
+                print("\n🤖 No external LLM configured — GitHub Copilot CLI will handle analysis")
             else:
                 print("\n⚠️  No LLM available — producing structured findings for manual review")
             print()
@@ -634,7 +634,7 @@ Do NOT:
             return {}
 
     def analyze_vulnerability(self, vuln: VulnerabilityContext) -> bool:
-        is_prep = isinstance(self.llm, ClaudeCodeProvider)
+        is_prep = isinstance(self.llm, CopilotCLIProvider)
 
         if is_prep:
             # Condensed logging for prep-only mode
@@ -1028,14 +1028,14 @@ Do NOT:
         false_positives_found = 0
         idx = 0  # Initialize idx to prevent UnboundLocalError when unique_findings is empty
 
-        is_prep = isinstance(self.llm, ClaudeCodeProvider)
+        is_prep = isinstance(self.llm, CopilotCLIProvider)
 
         with HackerProgress(total=len(unique_findings), operation="Analyzing vulnerabilities",
                             disabled=is_prep) as progress:
             for idx, finding in enumerate(unique_findings, 1):
                 progress.update(current=idx, message=f"{finding.get('rule_id', 'unknown')}")
 
-                if not isinstance(self.llm, ClaudeCodeProvider):
+                if not isinstance(self.llm, CopilotCLIProvider):
                     logger.info("")
                     logger.info(f"{'█' * 70}")
                     logger.info(f"VULNERABILITY {idx}/{len(unique_findings)}")
@@ -1071,7 +1071,7 @@ Do NOT:
                 results.append(vuln.to_dict())
 
             # Show progress
-            if isinstance(self.llm, ClaudeCodeProvider):
+            if isinstance(self.llm, CopilotCLIProvider):
                 logger.info(f"Progress: {idx}/{len(unique_findings)} prepped")
             else:
                 logger.info("")
@@ -1087,8 +1087,8 @@ Do NOT:
         llm_stats = self.llm.get_stats()
 
         # Determine mode: full (external LLM did analysis) or prep_only (mechanical prep,
-        # Claude Code or manual review handles reasoning)
-        is_prep_only = isinstance(self.llm, ClaudeCodeProvider)
+        # GitHub Copilot CLI or manual review handles reasoning)
+        is_prep_only = isinstance(self.llm, CopilotCLIProvider)
 
         report = {
             "mode": "prep_only" if is_prep_only else "full",

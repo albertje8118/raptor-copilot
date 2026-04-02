@@ -1,4 +1,4 @@
-"""Tests for orchestrator, CC dispatch, cost tracking, and structural grouping."""
+"""Tests for orchestrator, Copilot CLI dispatch, cost tracking, and structural grouping."""
 
 import json
 import os
@@ -18,11 +18,11 @@ from packages.llm_analysis.orchestrator import (
     CostTracker,
     CUTOFF_SKIP_CONSENSUS,
 )
-from packages.llm_analysis.cc_dispatch import (
+from packages.llm_analysis.copilot_dispatch import (
     build_finding_prompt,
     build_schema,
-    parse_cc_result,
-    parse_cc_freeform,
+    parse_copilot_result,
+    parse_copilot_freeform,
 )
 from packages.llm_analysis.prompts.schemas import FINDING_RESULT_SCHEMA
 
@@ -55,8 +55,8 @@ def _make_finding(finding_id, rule_id, file_path, start_line):
     }
 
 
-def _make_cc_result(finding_id, exploitable=True, score=0.85):
-    """Create a valid CC sub-agent result dict."""
+def _make_copilot_result(finding_id, exploitable=True, score=0.85):
+    """Create a valid GitHub Copilot CLI result dict."""
     return {
         "finding_id": finding_id,
         "is_true_positive": True,
@@ -101,18 +101,18 @@ class TestOrchestrate:
         )
         assert result is None
 
-    def test_inside_cc_still_dispatches(self, tmp_path):
-        """Inside CC (CLAUDECODE=1), dispatches subprocesses like outside CC."""
+    def test_copilot_cli_dispatches(self, tmp_path):
+        """GitHub Copilot CLI dispatches subprocesses when available."""
         report = _make_prep_report()
         report_path = tmp_path / "report.json"
         report_path.write_text(json.dumps(report))
 
-        cc_result = json.dumps(_make_cc_result("finding-001"))
+        copilot_result = json.dumps(_make_copilot_result("finding-001"))
 
-        with patch.dict(os.environ, {"CLAUDECODE": "1"}), \
-             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/claude"), \
-             patch("packages.llm_analysis.cc_dispatch.subprocess.run",
-                   side_effect=_mock_subprocess_ok([cc_result])):
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/copilot"), \
+             patch("packages.llm_analysis.copilot_dispatch.subprocess.run",
+                   side_effect=_mock_subprocess_ok([copilot_result])):
             result = orchestrate(
                 prep_report_path=report_path,
                 repo_path=tmp_path,
@@ -122,8 +122,8 @@ class TestOrchestrate:
         assert result is not None
         assert result["mode"] == "orchestrated"
 
-    def test_no_claude_binary(self, tmp_path):
-        """No claude on PATH -> returns None with warning."""
+    def test_no_copilot_binary(self, tmp_path):
+        """No copilot on PATH -> returns None with warning."""
         report = _make_prep_report()
         report_path = tmp_path / "report.json"
         report_path.write_text(json.dumps(report))
@@ -159,7 +159,7 @@ class TestOrchestrate:
         assert result is None
 
     def test_dispatches_per_finding(self, tmp_path):
-        """Dispatches one CC agent per finding and merges results."""
+        """Dispatches one Copilot CLI run per finding and merges results."""
         findings = [
             _make_finding("f-001", "py/sql-injection", "db.py", 42),
             _make_finding("f-002", "js/xss", "template.js", 18),
@@ -168,15 +168,15 @@ class TestOrchestrate:
         report_path = tmp_path / "report.json"
         report_path.write_text(json.dumps(report))
 
-        cc_results = [
-            json.dumps(_make_cc_result("f-001", exploitable=True)),
-            json.dumps(_make_cc_result("f-002", exploitable=False, score=0.1)),
+        copilot_results = [
+            json.dumps(_make_copilot_result("f-001", exploitable=True)),
+            json.dumps(_make_copilot_result("f-002", exploitable=False, score=0.1)),
         ]
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/claude"), \
-             patch("packages.llm_analysis.cc_dispatch.subprocess.run",
-                   side_effect=_mock_subprocess_ok(cc_results)):
+             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/copilot"), \
+             patch("packages.llm_analysis.copilot_dispatch.subprocess.run",
+                   side_effect=_mock_subprocess_ok(copilot_results)):
             result = orchestrate(
                 prep_report_path=report_path,
                 repo_path=tmp_path,
@@ -200,7 +200,7 @@ class TestOrchestrate:
         report_path.write_text(json.dumps(report))
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/claude"):
+             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/copilot"):
             result = orchestrate(
                 prep_report_path=report_path,
                 repo_path=tmp_path,
@@ -227,8 +227,8 @@ class TestOrchestrate:
             return result
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/claude"), \
-             patch("packages.llm_analysis.cc_dispatch.subprocess.run", side_effect=mock_run):
+             patch("packages.llm_analysis.orchestrator.shutil.which", return_value="/usr/bin/copilot"), \
+             patch("packages.llm_analysis.copilot_dispatch.subprocess.run", side_effect=mock_run):
             result = orchestrate(
                 prep_report_path=report_path,
                 repo_path=tmp_path,
@@ -320,12 +320,12 @@ class TestBuildFindingPrompt:
         assert "GOT overwrite" in prompt
 
 
-class TestParseCCResult:
-    """Test CC output parsing."""
+class TestParseCopilotResult:
+    """Test Copilot CLI output parsing."""
 
     def test_valid_json(self):
         """Clean JSON is parsed directly."""
-        result = parse_cc_result(
+        result = parse_copilot_result(
             json.dumps({"finding_id": "f-001", "is_exploitable": True}),
             "", "f-001",
         )
@@ -337,37 +337,37 @@ class TestParseCCResult:
         content = "Here is the result:\n```json\n" + json.dumps({
             "finding_id": "f-001", "is_exploitable": False, "reasoning": "test"
         }) + "\n```\n"
-        result = parse_cc_result(content, "", "f-001")
+        result = parse_copilot_result(content, "", "f-001")
         assert result["finding_id"] == "f-001"
         assert "error" not in result
 
     def test_empty_output(self):
         """Empty stdout returns error dict."""
-        result = parse_cc_result("", "some error", "f-001")
+        result = parse_copilot_result("", "some error", "f-001")
         assert result["finding_id"] == "f-001"
         assert "error" in result
 
     def test_invalid_json(self):
         """Unparseable output returns error dict."""
-        result = parse_cc_result("This is not JSON at all", "", "f-001")
+        result = parse_copilot_result("This is not JSON at all", "", "f-001")
         assert "error" in result
 
     def test_json_embedded_in_text(self):
         """JSON object embedded in surrounding text is extracted via raw_decode."""
         content = 'I found that {"finding_id": "f-001", "is_exploitable": true, "reasoning": "vuln"} is the result.'
-        result = parse_cc_result(content, "", "f-001")
+        result = parse_copilot_result(content, "", "f-001")
         assert result["finding_id"] == "f-001"
         assert "error" not in result
 
     def test_multiple_json_fragments_takes_first(self):
         """With multiple JSON objects, raw_decode takes the first valid one."""
         content = 'prefix {"partial": true} and {"finding_id": "f-001", "is_exploitable": false, "reasoning": "safe"} end'
-        result = parse_cc_result(content, "", "f-001")
+        result = parse_copilot_result(content, "", "f-001")
         # raw_decode takes the first complete JSON object from first {
         assert "error" not in result
 
-    def test_claude_output_format_json_envelope(self):
-        """claude -p --output-format json wraps result in metadata envelope."""
+    def test_provider_output_format_json_envelope(self):
+        """Structured provider envelopes are parsed for metadata when present."""
         envelope = json.dumps({
             "type": "result",
             "subtype": "success",
@@ -383,7 +383,7 @@ class TestParseCCResult:
                 "reasoning": "Stack buffer overflow",
             }
         })
-        result = parse_cc_result(envelope, "", "f-001")
+        result = parse_copilot_result(envelope, "", "f-001")
         assert result["finding_id"] == "f-001"
         assert result["is_exploitable"] is True
         assert result["exploitability_score"] == 0.9
@@ -391,8 +391,8 @@ class TestParseCCResult:
         assert "session_id" not in result  # envelope fields stripped
 
 
-class TestParseCCFreeform:
-    """Test free-form CC output parsing with JSON envelope."""
+class TestParseCopilotFreeform:
+    """Test free-form Copilot CLI output parsing with JSON envelope."""
 
     def test_extracts_content_and_cost(self):
         envelope = json.dumps({
@@ -400,44 +400,44 @@ class TestParseCCFreeform:
             "result": "Here is the exploit code:\n```python\nimport os\n```",
             "total_cost_usd": 0.18,
             "duration_ms": 12500,
-            "modelUsage": {"claude-sonnet-4-20250514": {}},
+            "modelUsage": {"gpt-5.4": {}},
             "usage": {"input_tokens": 1000, "output_tokens": 500},
         })
-        parsed = parse_cc_freeform(envelope, "")
+        parsed = parse_copilot_freeform(envelope, "")
         assert "exploit code" in parsed["content"]
         assert parsed["cost_usd"] == 0.18
         assert parsed["duration_seconds"] == 12.5
-        assert parsed["analysed_by"] == "claude-sonnet-4-20250514"
+        assert parsed["analysed_by"] == "gpt-5.4"
         assert parsed["_tokens"] == 1500
 
     def test_empty_output(self):
-        parsed = parse_cc_freeform("", "some error")
+        parsed = parse_copilot_freeform("", "some error")
         assert "error" in parsed
 
     def test_non_json_fallback(self):
-        parsed = parse_cc_freeform("Just plain text output", "")
+        parsed = parse_copilot_freeform("Just plain text output", "")
         assert parsed["content"] == "Just plain text output"
 
     def test_envelope_without_cost(self):
         envelope = json.dumps({"type": "result", "result": "analysis text"})
-        parsed = parse_cc_freeform(envelope, "")
+        parsed = parse_copilot_freeform(envelope, "")
         assert parsed["content"] == "analysis text"
         assert "cost_usd" not in parsed
 
 
 class TestMergeResults:
-    """Test merging CC results back into prep report."""
+    """Test merging Copilot CLI results back into prep report."""
 
     def test_preserves_prep_data(self):
-        """CC results are merged but prep data (code, dataflow) is preserved."""
+        """CLI results are merged but prep data (code, dataflow) is preserved."""
         finding = _make_finding("f-001", "py/sql-injection", "db.py", 42)
         finding["code"] = "original code"
         finding["has_dataflow"] = True
 
         report = _make_prep_report(findings=[finding])
-        cc_results = [_make_cc_result("f-001")]
+        copilot_results = [_make_copilot_result("f-001")]
 
-        merged = _merge_results(report, cc_results)
+        merged = _merge_results(report, copilot_results)
 
         result = merged["results"][0]
         assert result["code"] == "original code"
@@ -452,47 +452,47 @@ class TestMergeResults:
         original_mode = report["mode"]
         original_finding = report["results"][0].copy()
 
-        cc_results = [_make_cc_result("f-001")]
-        _merge_results(report, cc_results)
+        copilot_results = [_make_copilot_result("f-001")]
+        _merge_results(report, copilot_results)
 
         # Original report should be unchanged
         assert report["mode"] == original_mode
         assert "analysis" not in report["results"][0] or report["results"][0] == original_finding
 
     def test_failed_finding_preserved(self):
-        """Findings with CC errors keep prep data and get cc_error field."""
+        """Findings with CLI errors keep prep data and get copilot_error field."""
         report = _make_prep_report()
-        cc_results = [{"finding_id": "finding-001", "error": "timeout"}]
+        copilot_results = [{"finding_id": "finding-001", "error": "timeout"}]
 
-        merged = _merge_results(report, cc_results)
+        merged = _merge_results(report, copilot_results)
         result = merged["results"][0]
-        assert "cc_error" in result
+        assert "copilot_error" in result
 
     def test_failed_finding_includes_debug_path(self):
         """Failed findings with debug files include the path."""
         report = _make_prep_report()
-        cc_results = [{"finding_id": "finding-001", "error": "parse error",
-                       "cc_debug_file": "debug/cc_finding-001.txt"}]
+        copilot_results = [{"finding_id": "finding-001", "error": "parse error",
+                       "copilot_debug_file": "debug/copilot_finding-001.txt"}]
 
-        merged = _merge_results(report, cc_results)
+        merged = _merge_results(report, copilot_results)
         result = merged["results"][0]
-        assert result["cc_debug_file"] == "debug/cc_finding-001.txt"
+        assert result["copilot_debug_file"] == "debug/copilot_finding-001.txt"
 
     def test_mode_set_to_orchestrated(self):
         """Merged report has mode 'orchestrated'."""
         report = _make_prep_report()
-        cc_results = [_make_cc_result("finding-001")]
+        copilot_results = [_make_copilot_result("finding-001")]
 
-        merged = _merge_results(report, cc_results)
+        merged = _merge_results(report, copilot_results)
         assert merged["mode"] == "orchestrated"
 
     def test_no_exploits_flag_drops_exploit_code(self):
         """With no_exploits=True, exploit_code is not merged even if agent returned it."""
         finding = _make_finding("f-001", "py/sql-injection", "db.py", 42)
         report = _make_prep_report(findings=[finding])
-        cc_results = [_make_cc_result("f-001", exploitable=True)]
+        copilot_results = [_make_copilot_result("f-001", exploitable=True)]
 
-        merged = _merge_results(report, cc_results, no_exploits=True)
+        merged = _merge_results(report, copilot_results, no_exploits=True)
         result = merged["results"][0]
         assert result["exploitable"] is True
         assert result.get("has_exploit") is not True
@@ -500,18 +500,18 @@ class TestMergeResults:
         assert merged["exploits_generated"] == 0
 
     def test_counters_updated(self):
-        """Exploit/patch counters reflect CC results."""
+        """Exploit/patch counters reflect Copilot CLI results."""
         findings = [
             _make_finding("f-001", "py/sql-injection", "db.py", 42),
             _make_finding("f-002", "js/xss", "template.js", 18),
         ]
         report = _make_prep_report(findings=findings)
-        cc_results = [
-            _make_cc_result("f-001", exploitable=True),
-            _make_cc_result("f-002", exploitable=False, score=0.1),
+        copilot_results = [
+            _make_copilot_result("f-001", exploitable=True),
+            _make_copilot_result("f-002", exploitable=False, score=0.1),
         ]
 
-        merged = _merge_results(report, cc_results)
+        merged = _merge_results(report, copilot_results)
         assert merged["analyzed"] == 2
         assert merged["exploitable"] == 1
         assert merged["exploits_generated"] == 1  # Only f-001 has exploit_code
@@ -728,11 +728,11 @@ class TestMergePrepProtection:
         report = _make_prep_report(findings=[finding])
 
         # Simulate a dispatch result that tries to overwrite prep fields
-        cc_result = _make_cc_result("f-001", exploitable=True)
-        cc_result["code"] = "INJECTED CODE"
-        cc_result["file_path"] = "/etc/shadow"
+        copilot_result = _make_copilot_result("f-001", exploitable=True)
+        copilot_result["code"] = "INJECTED CODE"
+        copilot_result["file_path"] = "/etc/shadow"
 
-        merged = _merge_results(report, [cc_result])
+        merged = _merge_results(report, [copilot_result])
         result = merged["results"][0]
 
         # Prep data should be preserved

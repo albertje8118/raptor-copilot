@@ -7,7 +7,7 @@ Config file: ~/.config/raptor/models.json
 Model selection: best thinking model, primary model, fallback models
 
 Static model data (costs, limits, endpoints) lives in model_data.py.
-Availability detection (SDK flags, Ollama, Claude Code) lives in detection.py.
+Availability detection (SDK flags, Ollama, GitHub Copilot CLI) lives in detection.py.
 """
 
 import os

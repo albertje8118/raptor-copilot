@@ -7,10 +7,10 @@ analysis, exploit generation, patch creation, consensus, and retry.
 
 Dispatch routing:
   - External LLM configured: parallel generate_structured() / generate()
-  - No external LLM + claude on PATH: claude -p sub-agents (via cc_dispatch)
+  - No external LLM + copilot on PATH: GitHub Copilot CLI subprocesses
   - Neither: return None (manual review)
 
-If external LLM fails entirely, falls back to CC dispatch automatically.
+If external LLM fails entirely, falls back to GitHub Copilot CLI automatically.
 """
 
 import copy
@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from packages.llm_analysis.cc_dispatch import invoke_cc_simple
+from packages.llm_analysis.copilot_dispatch import invoke_copilot_simple
 from packages.llm_analysis.dispatch import _format_elapsed
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ CUTOFF_SINGLE_MODEL = 0.95
 class CostTracker:
     """Thread-safe cost tracking with adaptive budget cutoff.
 
-    Aggregates costs from both LLMClient (external LLM) and CC subprocess
-    results (claude -p envelope total_cost_usd). Provides budget-aware
+    Aggregates costs from external LLM calls and GitHub Copilot CLI dispatches.
+    Copilot CLI dispatches currently report zero incremental cost. Provides budget-aware
     cutoff signals.
     """
 
@@ -98,15 +98,15 @@ class CostTracker:
         return False
 
     def estimate_cost(self, n_findings: int, n_consensus_models: int = 0,
-                      model_name: str = "", is_cc: bool = False) -> float:
+                       model_name: str = "", is_copilot: bool = False) -> float:
         """Estimate total cost before dispatch (informational).
 
-        Uses MODEL_COSTS for external LLMs. CC agents are estimated at
-        ~$0.20/finding based on observed costs (they read files and reason,
-        consuming more tokens than a direct API call).
+        Uses MODEL_COSTS for external LLMs. GitHub Copilot CLI dispatches
+        are treated as zero incremental cost because RAPTOR cannot obtain
+        per-call billing data from the CLI.
         """
-        if is_cc:
-            avg_cost = 0.20  # CC agents: observed ~$0.15-0.25/finding
+        if is_copilot:
+            avg_cost = 0.0
         else:
             from packages.llm_analysis.llm.model_data import MODEL_COSTS
             # Estimate ~2K input tokens + ~500 output tokens per analysis call
@@ -143,7 +143,7 @@ def orchestrate(
     no_patches: bool = False,
     llm_config: Optional[Any] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Orchestrate vulnerability analysis via external LLM or Claude Code.
+    """Orchestrate vulnerability analysis via external LLM or GitHub Copilot CLI.
 
     Called from raptor_agentic.py Phase 4. Dispatches findings for parallel
     analysis, runs structural grouping, and optionally runs consensus and
@@ -151,10 +151,10 @@ def orchestrate(
 
     Dispatch routing:
     - llm_config provided (external LLM) -> parallel generate_structured()
-    - llm_config None + claude on PATH -> claude -p sub-agents
+    - llm_config None + copilot on PATH -> Copilot CLI subprocesses
     - Neither -> return None
 
-    If external LLM dispatch fails entirely, falls back to CC dispatch.
+    If external LLM dispatch fails entirely, falls back to Copilot CLI.
 
     Args:
         prep_report_path: Path to autonomous_analysis_report.json from Phase 3.
@@ -163,7 +163,7 @@ def orchestrate(
         max_parallel: Maximum concurrent agents.
         no_exploits: Skip exploit generation.
         no_patches: Skip patch generation.
-        llm_config: LLMConfig for external LLM dispatch (None = CC only).
+        llm_config: LLMConfig for external LLM dispatch (None = Copilot CLI only).
 
     Returns:
         Orchestrated report dict, or None if orchestration was skipped.
@@ -202,9 +202,9 @@ def orchestrate(
     # Estimate and print cost
     n_consensus = len(role_resolution.get("consensus_models", []))
     analysis_model_name = role_resolution.get("analysis_model").model_name if role_resolution.get("analysis_model") else ""
-    is_cc_dispatch = not (llm_config and llm_config.primary_model)
+    is_copilot_dispatch = not (llm_config and llm_config.primary_model)
     estimate = cost_tracker.estimate_cost(len(findings), n_consensus,
-                                          model_name=analysis_model_name, is_cc=is_cc_dispatch)
+                                          model_name=analysis_model_name, is_copilot=is_copilot_dispatch)
     if estimate > 0:
         print(f"\n  Estimated cost: ~${estimate:.2f} for {len(findings)} findings"
               + (f" + {n_consensus} consensus model(s)" if n_consensus else ""))
@@ -249,17 +249,16 @@ def orchestrate(
 
         dispatch_mode = "external_llm"
     else:
-        # CC: dispatch via claude -p subprocess
-        claude_bin = shutil.which("claude")
-        if not claude_bin:
-            print("\n  claude not found on PATH — cannot dispatch sub-agents")
-            print("  Install Claude Code: npm install -g @anthropic-ai/claude-code")
+        copilot_bin = shutil.which("copilot")
+        if not copilot_bin:
+            print("\n  copilot not found on PATH — cannot dispatch sub-agents")
+            print("  Install GitHub Copilot CLI and ensure `copilot` is on PATH.")
             return None
 
         def dispatch_fn(prompt, schema, system_prompt, temperature, model):
-            return invoke_cc_simple(prompt, schema, repo_path, claude_bin, out_dir)
+            return invoke_copilot_simple(prompt, schema, repo_path, copilot_bin, out_dir, model=model)
 
-        dispatch_mode = "cc_dispatch"
+        dispatch_mode = "copilot_cli"
 
     # --- Per-finding analysis ---
     results_by_id = {}
@@ -268,17 +267,17 @@ def orchestrate(
         results_by_id, cost_tracker, max_parallel,
     )
 
-    # Fallback: if external LLM failed entirely, try CC
+    # Fallback: if external LLM failed entirely, try GitHub Copilot CLI
     if (dispatch_mode == "external_llm"
             and analysis_results
             and all("error" in r for r in analysis_results)):
-        claude_bin = shutil.which("claude")
-        if claude_bin:
-            print("\n  All external LLM calls failed — falling back to Claude Code")
-            dispatch_mode = "cc_fallback"
+        copilot_bin = shutil.which("copilot")
+        if copilot_bin:
+            print("\n  All external LLM calls failed — falling back to GitHub Copilot CLI")
+            dispatch_mode = "copilot_cli_fallback"
 
             def dispatch_fn(prompt, schema, system_prompt, temperature, model):
-                return invoke_cc_simple(prompt, schema, repo_path, claude_bin, out_dir)
+                return invoke_copilot_simple(prompt, schema, repo_path, copilot_bin, out_dir, model=model)
 
             analysis_results = dispatch_task(
                 AnalysisTask(), findings, dispatch_fn, role_resolution,
@@ -292,9 +291,9 @@ def orchestrate(
             results_by_id[fid] = r
 
     # --- Exploit/patch generation ---
-    # CC analysis may produce exploits/patches inline via schema. ExploitTask/PatchTask
+    # Copilot CLI analysis may produce exploits/patches inline via schema. ExploitTask/PatchTask
     # only select findings that are exploitable AND missing exploit_code/patch_code,
-    # so this is a no-op when CC already generated them.
+    # so this is a no-op when the CLI already generated them.
     if not no_exploits:
         dispatch_task(
             ExploitTask(), findings, dispatch_fn, role_resolution,
@@ -392,24 +391,24 @@ def orchestrate(
 
 def _merge_results(
     prep_report: Dict[str, Any],
-    cc_results: List[Dict[str, Any]],
+    cli_results: List[Dict[str, Any]],
     no_exploits: bool = False,
     no_patches: bool = False,
 ) -> Dict[str, Any]:
-    """Merge CC sub-agent results back into the prep report.
+    """Merge GitHub Copilot CLI results back into the prep report.
 
-    Matches by finding_id. CC results update analysis fields while
+    Matches by finding_id. CLI results update analysis fields while
     preserving all prep data (code, dataflow, feasibility).
     """
     merged = dict(prep_report)
     merged["mode"] = "orchestrated"
 
-    # Index CC results by finding_id
-    cc_by_id = {}
-    for r in cc_results:
+    # Index CLI results by finding_id
+    cli_by_id = {}
+    for r in cli_results:
         fid = r.get("finding_id")
         if fid:
-            cc_by_id[fid] = r
+            cli_by_id[fid] = r
 
     # Deep copy results so we don't mutate the caller's data
     results = copy.deepcopy(merged.get("results", []))
@@ -422,12 +421,12 @@ def _merge_results(
 
     for finding in results:
         fid = finding.get("finding_id")
-        cc = cc_by_id.get(fid)
-        if not cc or "error" in cc:
-            # No CC result or failed — keep prep data, mark as unanalysed
-            finding["cc_error"] = cc.get("error") if cc else "not dispatched"
-            if cc and cc.get("cc_debug_file"):
-                finding["cc_debug_file"] = cc["cc_debug_file"]
+        cli_result = cli_by_id.get(fid)
+        if not cli_result or "error" in cli_result:
+            # No CLI result or failed — keep prep data, mark as unanalysed
+            finding["copilot_error"] = cli_result.get("error") if cli_result else "not dispatched"
+            if cli_result and cli_result.get("copilot_debug_file"):
+                finding["copilot_debug_file"] = cli_result["copilot_debug_file"]
             continue
 
         analysed += 1
@@ -436,27 +435,27 @@ def _merge_results(
         # Underscore-prefixed keys are internal and stripped.
         # Keys already in finding (prep data) are NOT overwritten — defence
         # against prompt injection where LLM returns crafted field names.
-        for k, v in cc.items():
+        for k, v in cli_result.items():
             if k.startswith("_") or k == "finding_id":
                 continue
             if k not in finding:
                 finding[k] = v
 
         # Ensure standard fields are set
-        finding["exploitable"] = cc.get("is_exploitable", False)
-        finding["exploitability_score"] = cc.get("exploitability_score", 0)
+        finding["exploitable"] = cli_result.get("is_exploitable", False)
+        finding["exploitability_score"] = cli_result.get("exploitability_score", 0)
 
         if finding["exploitable"]:
             exploitable += 1
 
-        if finding["exploitable"] and not no_exploits and cc.get("exploit_code"):
+        if finding["exploitable"] and not no_exploits and cli_result.get("exploit_code"):
             finding["has_exploit"] = True
             exploits_generated += 1
         else:
             finding.pop("exploit_code", None)
             finding["has_exploit"] = False
 
-        if finding["exploitable"] and not no_patches and cc.get("patch_code"):
+        if finding["exploitable"] and not no_patches and cli_result.get("patch_code"):
             finding["has_patch"] = True
             patches_generated += 1
         else:

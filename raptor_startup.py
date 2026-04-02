@@ -107,8 +107,8 @@ def _check_llm() -> tuple[list, list]:
         else:
             lines.append("   llm: no external LLM configured")
 
-        if avail.claude_code:
-            lines.append("        claude code \u2713")
+        if avail.copilot_cli:
+            lines.append("        github copilot cli \u2713")
 
     except Exception as e:
         lines.append("   llm: detection error")

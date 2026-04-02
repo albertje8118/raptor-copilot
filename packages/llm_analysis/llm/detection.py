@@ -3,7 +3,7 @@
 LLM availability detection.
 
 Answers the question "what's available?" — SDK presence, API keys,
-Ollama reachability, Claude Code, config file migration.
+Ollama reachability, GitHub Copilot CLI, config file migration.
 
 Single source of truth: all callers should use detect_llm_availability()
 instead of ad-hoc env var or PATH checks.
@@ -48,8 +48,13 @@ class LLMAvailability:
     PATH, or Ollama endpoints directly.
     """
     external_llm: bool  # An LLM reachable via SDK (cloud keys, Ollama, config file)
-    claude_code: bool   # Claude Code is available (running inside it, or installed on PATH)
-    llm_available: bool  # Someone will do the reasoning work (external_llm or claude_code)
+    copilot_cli: bool   # GitHub Copilot CLI is installed on PATH
+    llm_available: bool  # Someone will do the reasoning work (external_llm or copilot_cli)
+
+    @property
+    def claude_code(self) -> bool:
+        """Backward-compatible alias for older callers."""
+        return self.copilot_cli
 
 
 def _validate_ollama_url(url: str) -> str:
@@ -386,7 +391,7 @@ def detect_llm_availability() -> LLMAvailability:
     Result is cached per-process to avoid repeated Ollama HTTP checks.
 
     Returns:
-        LLMAvailability with three flags: external_llm, claude_code, llm_available
+        LLMAvailability with three flags: external_llm, copilot_cli, llm_available
     """
     global _cached_llm_availability
     if _cached_llm_availability is not None:
@@ -416,22 +421,20 @@ def detect_llm_availability() -> LLMAvailability:
     # Check Ollama reachability (requires OpenAI SDK for API calls)
     has_ollama = OPENAI_SDK_AVAILABLE and bool(_get_available_ollama_models())
 
-    # Check Claude Code environment
-    in_claude_code = bool(os.getenv("CLAUDECODE"))
-    claude_on_path = shutil.which("claude") is not None
-    claude_code = in_claude_code or claude_on_path
+    # Check GitHub Copilot CLI availability
+    copilot_cli = shutil.which("copilot") is not None
 
     external_llm = has_cloud_keys or has_config_file or has_ollama
 
     availability = LLMAvailability(
         external_llm=external_llm,
-        claude_code=claude_code,
-        llm_available=external_llm or claude_code,
+        copilot_cli=copilot_cli,
+        llm_available=external_llm or copilot_cli,
     )
 
     logger.info(
         f"LLM availability: external_llm={availability.external_llm}, "
-        f"claude_code={availability.claude_code}, "
+        f"copilot_cli={availability.copilot_cli}, "
         f"llm_available={availability.llm_available}"
     )
 

@@ -648,15 +648,14 @@ print(f"Compiled {{ok}}/{{total}} files ({{fail}} failed)")
         """Ask CC to suggest -I and -D flags to fix compilation failures.
 
         Security model:
-        - CC has read-only access (--allowed-tools Read,Grep,Glob)
-        - CC outputs JSON data, not code — parsed by json.loads
-        - Every flag from CC goes through _validate_flags before use
-        - CC cannot modify the build script or execute commands
+        - GitHub Copilot CLI only returns JSON data — parsed by json.loads
+        - Every flag from the CLI goes through _validate_flags before use
+        - The suggestion step cannot modify the build script
         - Invalid/malicious flags are silently rejected
         """
         import shutil as _shutil
-        claude_bin = _shutil.which("claude")
-        if not claude_bin:
+        copilot_bin = _shutil.which("copilot")
+        if not copilot_bin:
             return None
 
         failure_sample = "\n".join(
@@ -682,14 +681,18 @@ Rules:
 """
 
         try:
-            logger.info("  Asking Claude Code for additional compiler flags...")
+            logger.info("  Asking GitHub Copilot CLI for additional compiler flags...")
+            from packages.llm_analysis.copilot_dispatch import resolve_copilot_model
             result = subprocess.run(
-                [claude_bin, "-p",
-                 "--no-session-persistence",
-                 "--allowed-tools", "Read,Grep,Glob",
-                 "--add-dir", str(self.repo_path),
-                 "--max-budget-usd", "2.00"],
-                input=prompt, capture_output=True, text=True, timeout=180,
+                [
+                    copilot_bin,
+                    "-s",
+                    "--model",
+                    resolve_copilot_model(),
+                    "-p",
+                    prompt,
+                ],
+                capture_output=True, text=True, timeout=180, cwd=self.repo_path,
             )
             if result.returncode != 0 or not result.stdout.strip():
                 return None
@@ -714,20 +717,20 @@ Rules:
                     idx = content.index("{")
                     data = json.loads(content[idx:])
                 except (ValueError, json.JSONDecodeError):
-                    logger.debug("CC output wasn't valid JSON")
+                    logger.debug("GitHub Copilot CLI output wasn't valid JSON")
                     return None
 
             includes = self._validate_flags(data.get("includes", []))
             defines = self._validate_flags(data.get("defines", []))
 
             if includes or defines:
-                logger.info(f"  CC suggested {len(includes)} includes, {len(defines)} defines")
+                logger.info(f"  GitHub Copilot CLI suggested {len(includes)} includes, {len(defines)} defines")
                 return {"includes": includes, "defines": defines}
 
         except subprocess.TimeoutExpired:
-            logger.info("  CC flag suggestion timed out (180s)")
+            logger.info("  GitHub Copilot CLI flag suggestion timed out (180s)")
         except Exception as e:
-            logger.debug(f"CC flag suggestion failed: {e}")
+            logger.debug(f"GitHub Copilot CLI flag suggestion failed: {e}")
 
         return None
 
