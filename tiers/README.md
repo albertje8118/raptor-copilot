@@ -39,7 +39,7 @@ tiers/
     └── (empty - add when needed)
 ```
 
-**Note:** Claude Code skills live separately in `.claude/skills/` (not here).
+**Note:** Interactive assistant skills live separately in `.claude/skills/` (not here).
 
 ---
 

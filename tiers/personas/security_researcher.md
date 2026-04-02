@@ -223,7 +223,7 @@ Recommended action:
 - `agent.py`: Dataflow validation
 - `agent.py`: Vulnerability analysis
 
-**Claude Code can invoke explicitly:**
+**Interactive sessions can invoke explicitly:**
 - "Analyze this finding with security researcher"
 - "Is this a false positive?"
 - "Validate exploitability of finding #X"
