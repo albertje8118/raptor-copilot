@@ -1,6 +1,6 @@
-# RAPTOR + Claude Code Integration
+# RAPTOR Interactive Slash Command Guide
 
-This directory contains custom slash commands that let you use RAPTOR with plain English via Claude Code.
+These files document RAPTOR's interactive slash-command workflow. The current backend uses GitHub Copilot CLI, while the prompts also remain useful in compatible assistant sessions.
 
 ## Available Slash Commands
 
@@ -8,7 +8,7 @@ This directory contains custom slash commands that let you use RAPTOR with plain
 The main command that helps you decide which RAPTOR mode to use.
 
 **Examples:**
-- "Hey Claude, /raptor - scan my code for vulnerabilities"
+- "/raptor - scan my code for vulnerabilities"
 - "/raptor - I need to fuzz a binary"
 - "/raptor - test my web application"
 
@@ -37,9 +37,9 @@ Scans web applications for OWASP Top 10 vulnerabilities.
 
 ## How to Use
 
-1. **Type the slash command** in Claude Code
+1. **Type the slash command** in GitHub Copilot CLI
 2. **Add your request in plain English** after the dash
-3. **Claude will**:
+3. **The assistant will**:
    - Ask clarifying questions if needed
    - Run the appropriate RAPTOR command
    - Analyze the results
@@ -52,7 +52,7 @@ Scans web applications for OWASP Top 10 vulnerabilities.
 ```
 You: /raptor-scan - scan this directory for secrets and vulnerabilities
 
-Claude: I'll run a comprehensive security scan on the current directory.
+Assistant: I'll run a comprehensive security scan on the current directory.
         Let me start by running RAPTOR in agentic mode...
 
         [Runs: python3 raptor.py agentic --repo /current/path]
@@ -77,46 +77,46 @@ Claude: I'll run a comprehensive security scan on the current directory.
 
 You can use very natural language:
 
-- "Hey Claude, scan my code"
+- "Scan my code"
 - "Fuzz this binary for me"
 - "Check if my website has XSS"
 - "Find security bugs in ./myapp"
 - "Test /usr/bin/vulnerable_program for crashes"
 - "Scan this repo for hardcoded secrets"
 
-Claude will understand your intent and run the appropriate RAPTOR command!
+The assistant will understand your intent and run the appropriate RAPTOR command!
 
 ## What Happens Behind the Scenes
 
 1. **Slash command loads** the context/instructions for that RAPTOR mode
-2. **Claude understands** what you want to test and which parameters to use
+2. **The assistant understands** what you want to test and which parameters to use
 3. **RAPTOR runs** via the Bash tool (python3 raptor.py ...)
 4. **Results are analyzed** by reading output files from the `out/` directory
-5. **Claude summarizes** findings in plain English
+5. **The assistant summarizes** findings in plain English
 6. **Next steps offered** - apply patches, explain vulnerabilities, etc.
 
 ## Benefits
 
 ✅ **No need to remember command syntax** - just use plain English
-✅ **Intelligent defaults** - Claude picks good parameters
-✅ **Results interpretation** - Claude explains what was found
+✅ **Intelligent defaults** - the assistant picks good parameters
+✅ **Results interpretation** - the assistant explains what was found
 ✅ **Interactive** - Ask follow-up questions, drill into findings
 ✅ **Helpful** - Offers to apply patches, explain concepts, etc.
 
 ## Tips
 
 - Be specific about what you want to test
-- Claude will ask for paths if you don't provide them
+- The assistant will ask for paths if you don't provide them
 - You can chain requests: "scan this, then fuzz that binary"
-- Claude remembers context, so you can say "now explain finding #2"
+- The assistant remembers context, so you can say "now explain finding #2"
 
 ## Requirements
 
-- Claude Code CLI installed
+- GitHub Copilot CLI installed
 - RAPTOR installed (python3, dependencies)
 - For fuzzing: AFL++ properly configured
 - For full analysis: ANTHROPIC_API_KEY or OPENAI_API_KEY set
 
 ---
 
-**Start using RAPTOR with natural language now!** Just type `/raptor` and tell Claude what you want to test.
+**Start using RAPTOR with natural language now!** Just type `/raptor` and tell the assistant what you want to test.

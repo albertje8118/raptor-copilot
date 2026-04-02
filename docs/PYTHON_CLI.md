@@ -2,7 +2,7 @@
 
 For direct command-line usage, scripting, or CI/CD integration.
 
-**Tip:** Using Claude Code? See main README for interactive usage.
+**Tip:** Using the interactive assistant flow? See the main README for GitHub Copilot CLI usage.
 
 ---
 
@@ -39,7 +39,7 @@ python3 raptor.py help scan
 - Python 3.9+
 - `pip install -r requirements.txt`
 - `pip install semgrep`
-- Set an API key: ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or MISTRAL_API_KEY (optional — Claude Code alone works for analysis)
+- Set an API key: ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or MISTRAL_API_KEY (optional — GitHub Copilot CLI can handle analysis when external API keys are not configured)
 
 **Optional tools:**
 - AFL++ (`brew install afl++` or `apt install afl++`)
@@ -161,4 +161,4 @@ Custom groups can be added in `packages/static-analysis/scanner.py`.
 
 ---
 
-See main README for Claude Code interactive usage.
+See the main README for GitHub Copilot CLI interactive usage.

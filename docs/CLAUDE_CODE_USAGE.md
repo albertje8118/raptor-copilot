@@ -1,4 +1,6 @@
-# RAPTOR with Claude Code - Complete Usage Guide
+# RAPTOR Interactive Usage Guide
+
+> Legacy filename retained for compatibility. This guide describes the current GitHub Copilot CLI-backed interactive workflow.
 
 ## Available Commands
 
@@ -67,7 +69,7 @@ See `tiers/personas/` directory for complete persona files.
 ```
 User: /scan
 
-Claude: [Python executes raptor.py agentic]
+Assistant: [Python executes raptor.py agentic]
         [Scan completes]
 
         Results: 15 vulnerabilities found
@@ -89,7 +91,7 @@ Claude: [Python executes raptor.py agentic]
 
 User: 2
 
-Claude: Reviewing Python-generated patches...
+Assistant: Reviewing Python-generated patches...
         Found 2 template patches. Using Patch Engineer persona to create actual fixes...
         ✓ All patches now production-ready
         Apply patches? [Y/n]
@@ -123,7 +125,7 @@ Claude: [Applies patches using Edit tool]
 ```
 User: /scan
    ↓
-CLAUDE.md loads (360t)
+CLAUDE.md loads as the repository instruction file (360t)
 Session greeting: "RAPTOR ready..."
    ↓
 Python executes: raptor.py agentic
@@ -132,7 +134,7 @@ Scan completes → Results saved to out/
    ↓
 analysis-guidance.md auto-loads (565t)
    ↓
-Claude analyzes with adversarial prioritization
+Assistant analyzes with adversarial prioritization
    ↓
 Decision template presented (5 options)
    ↓
@@ -161,7 +163,7 @@ out/scan_<repo>_<timestamp>/
 ```
 
 **Access:**
-- **Claude Code:** Automatically analyzes and presents
+- **Interactive CLI:** Automatically analyzes and presents
 - **Python CLI:** Read files directly
 
 ---
@@ -225,11 +227,11 @@ Claude: ✓ Saved to: tiers/specialists/custom/api_security_auth_focus.md
 - Wrong policy groups
 - Language not supported
 
-**Fix:** Ask Claude "Why no findings?" and it will help diagnose
+**Fix:** Ask the assistant "Why no findings?" and it will help diagnose
 
 ### LLM errors
 
-**Python handles automatic fallback:** Claude → GPT-4 → Ollama
+**Python handles automatic routing:** external LLM providers first, then GitHub Copilot CLI when configured
 
 **Check:**
 - API key set: `echo $ANTHROPIC_API_KEY`

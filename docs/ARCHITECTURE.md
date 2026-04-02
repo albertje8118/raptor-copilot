@@ -31,7 +31,7 @@ RAPTOR (Recursive Autonomous Penetration Testing and Observation Robot) is a sec
 2. **Deep CodeQL Analysis Mode**: Advanced static analysis with dataflow validation (`raptor_codeql.py`)
 3. **Binary Fuzzing Mode**: Coverage-guided fuzzing of compiled binaries using AFL++ (`raptor_fuzzing.py`)
 
-Additionally, an interactive mode is available via `raptor.py` (Claude Code integration) that provides conversational access to all capabilities with progressive loading of expert personas.
+Additionally, RAPTOR ships a unified Python CLI via `raptor.py`, while conversational sessions are typically driven by GitHub Copilot CLI loading the repository instructions and command docs.
 
 The modular architecture refactors the original monolithic structure into a clean, hierarchical design:
 
@@ -52,7 +52,7 @@ raptor/
 ├── tiers/                 # Expert personas and recovery protocols
 ├── docs/                  # Documentation
 ├── out/                   # All outputs (scans, logs, reports)
-├── raptor.py              # Main launcher (Claude Code integration)
+├── raptor.py              # Unified Python CLI launcher
 ├── raptor_agentic.py      # Source code analysis workflow
 ├── raptor_codeql.py       # CodeQL workflow
 └── raptor_fuzzing.py      # Binary fuzzing workflow
@@ -107,7 +107,7 @@ raptor/
 │   │   ├── __init__.py
 │   │   ├── agent.py                # Main: Source code analysis
 │   │   ├── crash_agent.py          # Main: Binary crash analysis
-│   │   ├── orchestrator.py         # Multi-agent coordination (requires Claude Code)
+│   │   ├── orchestrator.py         # Multi-agent coordination (external LLM or GitHub Copilot CLI dispatch)
 │   │   └── llm/
 │   │       ├── __init__.py
 │   │       ├── client.py           # LLM client abstraction
@@ -177,7 +177,7 @@ raptor/
 │
 ├── docs/                           # Documentation
 │   ├── ARCHITECTURE.md             # This file
-│   ├── CLAUDE_CODE_USAGE.md        # Claude Code integration guide
+│   ├── CLAUDE_CODE_USAGE.md        # Interactive usage guide (legacy filename)
 │   ├── DATAFLOW_VALIDATION_SUMMARY.md  # Dataflow validation docs
 │   ├── EXTENDING_LAUNCHER.md       # Launcher extension guide
 │   ├── FUZZING_QUICKSTART.md       # Fuzzing quick start
@@ -195,15 +195,15 @@ raptor/
 │
 ├── test/                           # Test files and fixtures
 │
-├── raptor.py                       # Main launcher (Claude Code integration)
+├── raptor.py                       # Unified Python CLI launcher
 ├── raptor_agentic.py               # Source code analysis workflow
 ├── raptor_codeql.py                # CodeQL workflow orchestrator
 ├── raptor_fuzzing.py               # Binary fuzzing workflow
 ├── raptor-offset                   # ASCII art banner
 ├── hackers-8ball                   # Random security quotes
 ├── requirements.txt                # Python dependencies
-├── CLAUDE.md                       # Claude Code instructions
-├── CLAUDE_CODE_QUICKSTART.md       # Quick start guide
+├── CLAUDE.md                       # Interactive session instructions
+├── CLAUDE_CODE_QUICKSTART.md       # Interactive quick start (legacy filename)
 ├── DEPENDENCIES.md                 # Dependency documentation
 ├── LICENSE                         # License file
 └── README.md                       # Main README
@@ -396,7 +396,7 @@ python3 packages/codeql/agent.py \
 
 **Main Entry Points**:
 - `agent.py` - Standalone analysis (OpenAI/Anthropic compatible)
-- `orchestrator.py` - Phase 4 orchestration: dispatches claude -p sub-agents for parallel analysis (requires Claude Code)
+- `orchestrator.py` - Phase 4 orchestration: dispatches GitHub Copilot CLI subprocesses for parallel analysis when no external LLM is configured
 
 **CLI Interface (agent.py)**:
 ```bash
@@ -706,7 +706,7 @@ Expert persona specifications for specialized analysis:
 - Domain-specific security expertise
 
 **Usage**:
-- Loaded on-demand by `raptor.py` (Claude Code integration)
+- Loaded on-demand by the interactive assistant instructions (`CLAUDE.md` and `.claude/commands/`)
 - Provides specialized context for different security testing phases
 - Enables persona-based LLM prompting for improved analysis quality
 
@@ -715,41 +715,38 @@ Expert persona specifications for specialized analysis:
 
 ## Entry Points
 
-### `raptor.py` - Main Launcher (Claude Code Integration)
+### `raptor.py` - Unified Python CLI Launcher
 
-**Purpose**: Interactive launcher with Claude Code integration for conversational security testing
+**Purpose**: Route subcommands to RAPTOR's Python workflows for scripting, CI, and assistant-driven sessions.
 
 **Usage**:
 ```bash
-# Run with Claude Code
-claude-code raptor.py
+# Run the unified CLI directly
+python3 raptor.py agentic --repo /path/to/code
+python3 raptor.py scan --repo /path/to/code --policy_groups secrets,owasp
 
-# Interactive session with progressive loading
+# For interactive sessions, start GitHub Copilot CLI in the repository root
+copilot
 ```
 
 **Features**:
-- Claude Code integration for interactive analysis
-- Progressive loading of expert personas from `tiers/`
-- Slash command support (/scan, /fuzz, /web, /agentic, /codeql, /analyze, /exploit, /patch)
-- On-demand loading of specialized guidance
-- ASCII art and inspirational security quotes on startup
-- Session-based workflow management
+- Unified entry point for `scan`, `fuzz`, `web`, `agentic`, `codeql`, and `analyze`
+- Thin wrapper that forwards arguments to the underlying workflow scripts
+- Sensible defaults such as enabling CodeQL automatically for `agentic` mode
+- Works in scripts, CI pipelines, and interactive assistant sessions
 
 **Workflow**:
-1. Display banner and available commands
-2. Load appropriate persona based on user request
-3. Execute requested command (scan, fuzz, analyze, etc.)
-4. Load analysis guidance or recovery protocols as needed
-5. Provide interactive follow-up and recommendations
+1. Parse the requested subcommand
+2. Resolve the backing Python script for that mode
+3. Forward arguments to the selected workflow
+4. Return the underlying workflow's exit code
 
-**Key Features**:
-- Conversational interface via Claude Code
-- Context-aware persona loading (e.g., load `fuzzing_strategist.md` for /fuzz)
-- Progressive expertise loading to manage context window
-- Integration with all RAPTOR packages
-- Safe operations execute immediately, dangerous operations require confirmation
+**Interactive Layer**:
+- Conversational workflows are provided by GitHub Copilot CLI reading `CLAUDE.md` plus `.claude/commands/`
+- Progressive loading of personas and recovery guides happens in the interactive instruction layer, not inside `raptor.py` itself
+- `raptor.py` remains the execution entry point the interactive assistant calls when it needs to run RAPTOR workflows
 
-**Design Rationale**: Provides a conversational, user-friendly interface for security testing workflows while leveraging Claude Code's capabilities for interactive analysis and multi-turn reasoning.
+**Design Rationale**: Keeps the execution surface simple and scriptable while allowing the repository's interactive instruction set to evolve independently from the Python CLI.
 
 
 ### `raptor_codeql.py` - CodeQL Workflow Orchestrator
@@ -818,7 +815,7 @@ python3 raptor_agentic.py \
 1. **Phase 1**: Scan code with Semgrep/CodeQL (`packages/static-analysis/scanner.py`)
 2. **Phase 2**: Exploitability validation (`packages/exploitability_validation/`)
 3. **Phase 3**: Autonomous analysis (`packages/llm_analysis/agent.py`) — full with external LLM, or prep-only when Phase 4 will orchestrate
-4. **Phase 4**: Orchestration (`packages/llm_analysis/orchestrator.py`) — dispatches claude -p sub-agents when no external LLM configured
+4. **Phase 4**: Orchestration (`packages/llm_analysis/orchestrator.py`) — dispatches GitHub Copilot CLI subprocesses when no external LLM is configured
 
 **Outputs**:
 - `raptor_agentic_report.json` - End-to-end summary
@@ -911,10 +908,10 @@ All package agents follow a consistent CLI pattern:
 - `--no-exploits`: Skip exploit generation
 - `--no-patches`: Skip patch generation
 
-**raptor.py** (interactive):
-- Slash commands: `/scan`, `/fuzz`, `/web`, `/agentic`, `/codeql`, `/analyze`, `/exploit`, `/patch`
-- Progressive loading of expert personas
-- Claude Code integration for conversational interface
+**raptor.py** (unified CLI):
+- Subcommands: `scan`, `fuzz`, `web`, `agentic`, `codeql`, `analyze`, `help`
+- For conversational slash commands, see `CLAUDE.md` and `.claude/commands/`
+- Interactive sessions typically run through GitHub Copilot CLI
 
 **raptor_codeql.py**:
 - `--repo`: Path to repository (required)

@@ -1,7 +1,9 @@
-# RAPTOR + Claude Code Quick Start
+# RAPTOR Interactive Quick Start
+
+> Legacy filename retained for compatibility. Use this guide for the current GitHub Copilot CLI-backed interactive flow.
 
 ## TL;DR
-Use RAPTOR with plain English in Claude Code via slash commands!
+Use RAPTOR with plain English in GitHub Copilot CLI via slash commands!
 
 ## Commands
 
@@ -14,7 +16,7 @@ Use RAPTOR with plain English in Claude Code via slash commands!
 
 ## Natural Language Examples
 
-Just talk naturally to Claude:
+Just talk naturally to the assistant:
 
 ### Code Scanning
 ```
@@ -44,7 +46,7 @@ Just talk naturally to Claude:
 /raptor - help me test my application
 ```
 
-## What Claude Does
+## What the Assistant Does
 
 1. ✅ Understands your request in plain English
 2. ✅ Runs the appropriate RAPTOR command
@@ -58,7 +60,7 @@ Just talk naturally to Claude:
 ```
 You: /raptor-scan - scan this code
 
-Claude: I'll scan the current directory with RAPTOR...
+Assistant: I'll scan the current directory with RAPTOR...
         [Runs scan...]
         Found 5 vulnerabilities!
 
@@ -73,12 +75,12 @@ Claude: I'll scan the current directory with RAPTOR...
 
 You: Show me the exploit
 
-Claude: [Reads and displays the exploit code]
+Assistant: [Reads and displays the exploit code]
         This exploit works by...
 
 You: Apply the patch for that one
 
-Claude: [Applies the patch using Edit tool]
+Assistant: [Applies the patch using Edit tool]
         ✓ Patch applied! The SQL injection is now fixed.
 
         Want me to scan again to verify the fix?
@@ -92,15 +94,15 @@ Claude: [Applies the patch using Edit tool]
 🔧 **Interactive fix workflow**
 ⚡ **Fast and autonomous**
 
-## Setup (Through Claude Code)
+## Setup (Through GitHub Copilot CLI)
 
 ```bash
-# 1. Clone and open in Claude Code
+# 1. Clone and open in GitHub Copilot CLI
 git clone https://github.com/gadievron/raptor.git
 cd raptor
-claude
+copilot
 
-# 2. Let Claude handle setup
+# 2. Let Copilot handle setup
 "Install Python packages from requirements.txt"
 "Install semgrep"  # External tool
 
@@ -115,12 +117,12 @@ claude
 /web  - Test web applications
 ```
 
-**Optional tools** (Claude Code helps install when you use them):
+**Optional tools** (GitHub Copilot CLI helps install when you use them):
 - AFL++ (for fuzzing)
 - CodeQL (for deep static analysis)
 - LLDB/GDB (for crash analysis - LLDB pre-installed on macOS)
 
-Let Claude Code handle it!
+Let GitHub Copilot CLI handle it!
 
 ## Examples by Scenario
 
@@ -146,9 +148,9 @@ Let Claude Code handle it!
 
 ---
 
-**That's it!** Just use `/raptor` commands and chat naturally with Claude.
+**That's it!** Just use `/raptor` commands and chat naturally with the assistant.
 
-Claude Code will handle:
+GitHub Copilot CLI will handle:
 - Running RAPTOR commands
 - Interpreting results
 - Explaining vulnerabilities
